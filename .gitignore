@@ -1,0 +1,10 @@
+### Build output ###
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### VS Code ###
+.vscode/
+
+### MacOS ###
+.DS_Store
