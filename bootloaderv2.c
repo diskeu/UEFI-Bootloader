@@ -3,10 +3,10 @@
 
 // UEFI
 #include <Uefi.h>
-#include <SimpleFileSystem.h>
-#include <LoadedImage.h>
+#include <Protocol/SimpleFileSystem.h>>
+#include <Protocol/LoadedImage.h>
 #include <Library/UefiLib.h>
-#include <FileInfo.h>
+#include <Guid/FileInfo.h> 
 
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
@@ -98,7 +98,8 @@ CHAR8 * get_config_property(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     CONST char *key,
     CONST char *path,
-    EFI_BOOT_SERVICES *gBS
+    EFI_BOOT_SERVICES *gBS,
+    EFI_STATUS *efi_status
 ) {
 
     EFI_FILE_PROTOCOL *root;
@@ -109,6 +110,7 @@ CHAR8 * get_config_property(
         != EFI_SUCCESS
     ) {
         PrintE(L"Error opening volume", stat);
+        *efi_status = stat;
         return NULL;
     }
 
@@ -124,6 +126,7 @@ CHAR8 * get_config_property(
 
     if (EFI_ERROR(stat)) {
         PrintE(L"Error opening config file location", stat);
+        *efi_status = stat;
         return NULL;
     }
 
@@ -144,6 +147,7 @@ CHAR8 * get_config_property(
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Error while allocating info buffer", stat);
+        *efi_status = stat;
         return NULL;
     }
 
@@ -155,6 +159,7 @@ CHAR8 * get_config_property(
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Error Getting file info", stat);
+        *efi_status = stat;
         return NULL;
     }
 
@@ -168,6 +173,7 @@ CHAR8 * get_config_property(
     );
     if (EFI_ERROR(stat)) {
         PrintE("Error allocating file buffer", stat);
+        *efi_status = stat;
         return NULL;
     }
 
@@ -178,6 +184,7 @@ CHAR8 * get_config_property(
     );
     if (EFI_ERROR(stat)) {
         PrintE("Error while reading into file buffer", stat);
+        *efi_status = stat;
         return NULL;
     }
 
@@ -192,6 +199,7 @@ CHAR8 * get_config_property(
             "Couldn't find correct key in boot config. Kernel path key: |%a|\n",
             KERNEL_PATH_KEY
         );
+        *efi_status = stat;
         return NULL;
     }
 
@@ -232,9 +240,20 @@ EFI_STATUS main(
             EFI_OPEN_PROTOCOL_GET_PROTOCOL
         );
     }
-    if (sfsp) {
-        get_config_property(&sfsp, "kernel", BOOT_CONFIG_PATH, gBS);
-    } else {
+
+    CHAR8 kernel_path = NULL;
+    EFI_STATUS *efi_status;
+
+    if (
+        !sfsp ||
+        !(kernel_path = get_config_property(
+            &sfsp,
+            "kernel",
+            BOOT_CONFIG_PATH,
+            gBS,
+            efi_status
+        ))
+    ) {
         // Fallback
         EFI_HANDLE handle_buff[] = NULL;
         UINTN buff_size = 0;
@@ -272,18 +291,19 @@ EFI_STATUS main(
                     EFI_OPEN_PROTOCOL_GET_PROTOCOL
                 ) == EFI_SUCCESS
             ) {
-                switch (
-                    get_config_property(&sfsp, "kernel", BOOT_CONFIG_PATH, gBS)
-                ) {
-                    case EFI_NOT_FOUND:
-                        PrintE("Boot config file couldn't be found", stat);
-                        return stat;
-
-                    case !EFI_SUCCESS:
-                        PrintE("Error while opening boot file", stat);
-                        return stat;
-                }
+                kernel_path = get_config_property(
+                    &sfsp,
+                    "kernel",
+                    BOOT_CONFIG_PATH,
+                    gBS,
+                    efi_status
+                );
+                if (kernel_path) { break; }
             }
         }
+    }
+    if (!kernel_path) {
+        PrintE("Couldn't get kernel path with handle", efi_status);
+        return efi_status ? efi_status : EFI_NOT_FOUND;
     }
 }
