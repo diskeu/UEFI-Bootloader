@@ -18,7 +18,7 @@ typedef enum {
     MV_UNTIL_NEXT_KEY
 } ReadingState;
 
-static PrintE(CONST CHAR16 *msg, CONST EFI_STATUS stat) {
+static void PrintE(CONST CHAR16 *msg, CONST EFI_STATUS stat) {
     Print(msg);
     Print(L"    |EFI_STATUS: %llu|\n", stat);
 }
@@ -94,7 +94,7 @@ CHAR8 *read_config_property(
     return NULL;
 }
 
-EFI_STATUS get_config_property(
+CHAR8 * get_config_property(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     CONST char *key,
     CONST char *path,
@@ -107,19 +107,25 @@ EFI_STATUS get_config_property(
     if (
         (stat = sfsp->OpenVolume(sfsp, &root))
         != EFI_SUCCESS
-    ) { return stat; }
+    ) {
+        PrintE(L"Error opening volume", stat);
+        return NULL;
+    }
 
     EFI_FILE_PROTOCOL *sub;
 
     stat = root->Open(
         root,
         &sub,
-        L"\\boot\\config",
+        BOOT_CONFIG_PATH,
         EFI_FILE_MODE_READ,
         NULL
     );
 
-    if (stat != EFI_SUCCESS) { return stat; }
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error opening config file location", stat);
+        return NULL;
+    }
 
     EFI_FILE_INFO *info = NULL;
     UINTN buff_size     = 0;
@@ -136,7 +142,10 @@ EFI_STATUS get_config_property(
         &buff_size,
         (VOID**)&info
     );
-    if (EFI_ERROR(stat)) { return stat; }
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error while allocating info buffer", stat);
+        return NULL;
+    }
 
     stat = sub->GetInfo(
         sub,
@@ -144,7 +153,10 @@ EFI_STATUS get_config_property(
         &buff_size,
         (VOID**) &info
     );
-    if (EFI_ERROR(stat)) { return stat; }
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error Getting file info", stat);
+        return NULL;
+    }
 
     CHAR8 *file_buff;
     UINT64 file_buff_size = info->FileSize; 
@@ -154,14 +166,20 @@ EFI_STATUS get_config_property(
         &file_buff_size,
         (VOID**) &file_buff
     );
-    if (EFI_ERROR(stat)) { return stat; }
+    if (EFI_ERROR(stat)) {
+        PrintE("Error allocating file buffer", stat);
+        return NULL;
+    }
 
     stat = sub->Read(
         sub,
         &file_buff_size,
         (VOID**) &file_buff
     );
-    if (EFI_ERROR(stat)) { return stat; }
+    if (EFI_ERROR(stat)) {
+        PrintE("Error while reading into file buffer", stat);
+        return NULL;
+    }
 
     CHAR8 *kernel_path = read_config_property(
         KERNEL_PATH_KEY,
@@ -174,9 +192,10 @@ EFI_STATUS get_config_property(
             "Couldn't find correct key in boot config. Kernel path key: |%a|\n",
             KERNEL_PATH_KEY
         );
+        return NULL;
     }
 
-    return stat;
+    return kernel_path;
 }
 
 EFI_STATUS main(
@@ -238,7 +257,11 @@ EFI_STATUS main(
         
         if (sfsp_stat != EFI_SUCCESS) { return sfsp_stat; }
         
-        for (EFI_HANDLE *handle = handle_buff; handle - handle_buff < buff_size; handle++) {
+        for (
+            EFI_HANDLE *handle = handle_buff;
+            handle - handle_buff < buff_size;
+            handle++
+        ) {
             if (
                 gBS->OpenProtocol(
                     handle,
