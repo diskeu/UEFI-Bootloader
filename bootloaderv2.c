@@ -1,12 +1,10 @@
-#include <string.h>
-#include <sys/stat.h>
-
 // UEFI
 #include <Uefi.h>
 #include <Protocol/SimpleFileSystem.h>>
 #include <Protocol/LoadedImage.h>
 #include <Library/UefiLib.h>
-#include <Guid/FileInfo.h> 
+#include <Guid/FileInfo.h>
+#include <Library/BaseLib.h>
 
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
@@ -63,7 +61,7 @@ CHAR8 *read_config_property(
                     
                     case '=':
                         k_buff[k_buff_i] = '\0';
-                        if (strcmp(key, k_buff)) {
+                        if (AsciiStrCmp(key, k_buff)) {
                             read_st = VALUE;
                             break;
                         }
