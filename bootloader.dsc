@@ -10,6 +10,15 @@
 [LibraryClasses]
     UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
     BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
+    PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+    DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+    BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
+    RegisterFilterLib|MdePkg/Library/RegisterFilterLibNull/RegisterFilterLibNull.inf
+    PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+    MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+    UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
+    DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+    UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
 
 [Components]
     bootloader.inf

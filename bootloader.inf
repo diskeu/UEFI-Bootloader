@@ -9,8 +9,8 @@
 [Sources]
     bootloader.c
 
-[Package]
-    MDePkg/MdePkg.dec
+[Packages]
+    MdePkg/MdePkg.dec
 
 [LibraryClasses]
     UefiLib
