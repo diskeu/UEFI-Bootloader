@@ -204,7 +204,7 @@ CHAR8 * get_config_property(
     return kernel_path;
 }
 
-EFI_STATUS main(
+EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
     EFI_SYSTEM_TABLE *systemTable
 ) {

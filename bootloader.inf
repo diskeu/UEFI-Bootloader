@@ -4,10 +4,10 @@
     FILE_GUID                   = e3a43bcd-7607-4d30-ad54-576ac0f4275c
     MODULE_TYPE                 = UEFI_APPLICATION
     VERSION_STRING              = 1.0
-    ENTRY_POINT                 = main
+    ENTRY_POINT                 = uefi_main
 
 [Sources]
-    bootloader.c
+    bootloaderv2.c
 
 [Packages]
     MdePkg/MdePkg.dec

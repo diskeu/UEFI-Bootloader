@@ -1,5 +1,6 @@
 ### Build output ###
 target/
+Build/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
