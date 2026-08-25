@@ -1,6 +1,6 @@
 // UEFI
 #include <Uefi.h>
-#include <Protocol/SimpleFileSystem.h>>
+#include <Protocol/SimpleFileSystem.h>
 #include <Protocol/LoadedImage.h>
 #include <Library/UefiLib.h>
 #include <Guid/FileInfo.h>
@@ -24,14 +24,25 @@ static void PrintE(CONST CHAR16 *msg, CONST EFI_STATUS stat) {
 CHAR8 *read_config_property(
     CONST CHAR8 *key,
     CONST CHAR8 *file_buff,
-    CONST UINT64 file_buff_size
+    CONST UINT64 file_buff_size,
+    CONST EFI_BOOT_SERVICES *gBS
 ) {
-    CHAR8 *read_pos      = file_buff;
-    ReadingState read_st = KEY;
-    short k_buff_i       = 0,
-          v_buff_i       = 0;
-    CHAR8 k_buff[CONFIG_LINE_SIZE+1],
-          v_buff[CONFIG_LINE_SIZE+1];
+    CONST CHAR8 *read_pos      = file_buff;
+    ReadingState read_st       = KEY;
+    short k_buff_i             = 0,
+          v_buff_i             = 0;
+    CHAR8 k_buff[CONFIG_LINE_SIZE+1];
+    CHAR8 *v_buff;
+
+    gBS->AllocatePool(
+        EfiLoaderData,
+        CONFIG_LINE_SIZE+1,
+        (VOID**) &v_buff
+    );
+    if (EFI_ERROR(v_buff)) {
+        gBS->FreePool(v_buff);
+        return NULL;
+    }
 
     while (read_pos - file_buff < file_buff_size) {
 
@@ -95,8 +106,8 @@ CHAR8 *read_config_property(
 CHAR8 * get_config_property(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     CONST char *key,
-    CONST char *path,
-    EFI_BOOT_SERVICES *gBS,
+    CHAR16 *path,
+    CONST EFI_BOOT_SERVICES *gBS,
     EFI_STATUS *efi_status
 ) {
 
@@ -117,9 +128,9 @@ CHAR8 * get_config_property(
     stat = root->Open(
         root,
         &sub,
-        BOOT_CONFIG_PATH,
+        path,
         EFI_FILE_MODE_READ,
-        NULL
+        0
     );
 
     if (EFI_ERROR(stat)) {
@@ -140,9 +151,10 @@ CHAR8 * get_config_property(
 
     stat = gBS->AllocatePool(
         EfiLoaderData,
-        &buff_size,
+        buff_size,
         (VOID**)&info
     );
+
     if (EFI_ERROR(stat)) {
         PrintE(L"Error while allocating info buffer", stat);
         *efi_status = stat;
@@ -166,11 +178,11 @@ CHAR8 * get_config_property(
 
     stat = gBS->AllocatePool(
         EfiLoaderData,
-        &file_buff_size,
+        file_buff_size,
         (VOID**) &file_buff
     );
     if (EFI_ERROR(stat)) {
-        PrintE("Error allocating file buffer", stat);
+        PrintE(L"Error allocating file buffer", stat);
         *efi_status = stat;
         return NULL;
     }
@@ -181,7 +193,7 @@ CHAR8 * get_config_property(
         (VOID**) &file_buff
     );
     if (EFI_ERROR(stat)) {
-        PrintE("Error while reading into file buffer", stat);
+        PrintE(L"Error while reading into file buffer", stat);
         *efi_status = stat;
         return NULL;
     }
@@ -189,17 +201,19 @@ CHAR8 * get_config_property(
     CHAR8 *kernel_path = read_config_property(
         KERNEL_PATH_KEY,
         file_buff,
-        file_buff_size
+        file_buff_size,
+        gBS
     );
 
     if (!kernel_path) {
         Print(
-            "Couldn't find correct key in boot config. Kernel path key: |%a|\n",
+            L"Couldn't find correct key in boot config. Kernel path key: |%a|\n",
             KERNEL_PATH_KEY
         );
         *efi_status = stat;
         return NULL;
     }
+    gBS->FreePool(kernel_path);
 
     return kernel_path;
 }
@@ -237,15 +251,16 @@ EFI_STATUS uefi_main(
             NULL,
             EFI_OPEN_PROTOCOL_GET_PROTOCOL
         );
+        if (sfsp_stat != EFI_SUCCESS) { return sfsp_stat; }
     }
 
-    CHAR8 kernel_path = NULL;
-    EFI_STATUS *efi_status;
+    CHAR8 *kernel_path = NULL;
+    EFI_STATUS *efi_status = NULL;
 
     if (
         !sfsp ||
         !(kernel_path = get_config_property(
-            &sfsp,
+            sfsp,
             "kernel",
             BOOT_CONFIG_PATH,
             gBS,
@@ -253,30 +268,22 @@ EFI_STATUS uefi_main(
         ))
     ) {
         // Fallback
-        EFI_HANDLE handle_buff[] = NULL;
-        UINTN buff_size = 0;
- 
-        gBS->LocateHandle(
+        EFI_HANDLE *handle_buff;
+        UINTN handle_count = 0;
+
+        sfsp_stat = gBS->LocateHandleBuffer(
             ByProtocol,
             &gEfiSimpleFileSystemProtocolGuid,
             NULL,
-            &buff_size,
-            handle_buff
-        );
-        handle_buff[buff_size];
-        sfsp_stat = gBS->LocateHandle(
-            ByProtocol,
-            &gEfiSimpleFileSystemProtocolGuid,
-            NULL,
-            &buff_size,
-            handle_buff
+            &handle_count,
+            &handle_buff
         );
         
-        if (sfsp_stat != EFI_SUCCESS) { return sfsp_stat; }
+        if (EFI_ERROR(sfsp_stat)) { return sfsp_stat; }
         
         for (
             EFI_HANDLE *handle = handle_buff;
-            handle - handle_buff < buff_size;
+            handle - handle_buff < handle_count;
             handle++
         ) {
             if (
@@ -290,7 +297,7 @@ EFI_STATUS uefi_main(
                 ) == EFI_SUCCESS
             ) {
                 kernel_path = get_config_property(
-                    &sfsp,
+                    sfsp,
                     "kernel",
                     BOOT_CONFIG_PATH,
                     gBS,
@@ -301,7 +308,8 @@ EFI_STATUS uefi_main(
         }
     }
     if (!kernel_path) {
-        PrintE("Couldn't get kernel path with handle", efi_status);
-        return efi_status ? efi_status : EFI_NOT_FOUND;
+        PrintE(L"Couldn't get kernel path with handle", *efi_status);
+        return *efi_status ? *efi_status : EFI_NOT_FOUND;
     }
+    return EFI_SUCCESS;
 }
