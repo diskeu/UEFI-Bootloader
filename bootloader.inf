@@ -16,3 +16,9 @@
     UefiLib
     BaseLib
     UefiApplicationEntryPoint
+
+[Protocols]
+    gEfiLoadedImageProtocolGuid
+
+[Guids]
+    gEfiFileInfoGuid
