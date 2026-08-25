@@ -6,9 +6,11 @@
 #include <Guid/FileInfo.h>
 #include <Library/BaseLib.h>
 
+
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
 #define CONFIG_LINE_SIZE (256)
+
 
 typedef enum {
     KEY,
@@ -16,10 +18,143 @@ typedef enum {
     MV_UNTIL_NEXT_KEY
 } ReadingState;
 
+
 static void PrintE(CONST CHAR16 *msg, CONST EFI_STATUS stat) {
     Print(msg);
     Print(L"    |EFI_STATUS: %llu|\n", stat);
 }
+
+
+CHAR16 *convert_to_char16(CONST CHAR8 *data, CONST EFI_BOOT_SERVICES *gBS) {
+    CONST CHAR8 *ptr = data;
+    CHAR16 *result;
+
+    EFI_STATUS stat = gBS->AllocatePool(
+        EfiLoaderData,
+        AsciiStrLen(data)+1,
+        (VOID**) &result
+    );
+    if (EFI_ERROR(stat)) { return NULL; }
+    
+    while (*ptr != '\0') {
+        *result = (CHAR16) *ptr;
+        ptr++; result++;
+    }
+    *result = L'\0';
+
+    return result;
+}
+
+
+EFI_STATUS get_info(
+    EFI_FILE_PROTOCOL *sub,
+    CONST EFI_BOOT_SERVICES *gBS,
+    EFI_FILE_INFO **info
+) {
+    UINTN buff_size     = 0;
+    EFI_STATUS stat;
+
+    sub->GetInfo(
+        sub,
+        &gEfiFileInfoGuid,
+        &buff_size,
+        NULL
+    );
+
+    stat = gBS->AllocatePool(
+        EfiLoaderData,
+        buff_size,
+        (VOID**) info
+    );
+
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error while allocating info buffer", stat);
+        return stat;
+    }
+
+    stat = sub->GetInfo(
+        sub,
+        &gEfiFileInfoGuid,
+        &buff_size,
+        (VOID**) info
+    );
+
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error Getting file info", stat);
+        gBS->FreePool(info);
+        return stat;
+    }
+    return EFI_SUCCESS;
+}
+
+
+EFI_STATUS read_file(
+    CHAR16 *path,
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
+    CONST EFI_BOOT_SERVICES *gBS,
+    OUT CHAR8 **file_buff,
+    OUT UINT64 *file_buff_size
+) {
+    // Opening root-directory
+    EFI_FILE_PROTOCOL *root;
+    EFI_STATUS         stat;
+
+    stat = sfsp->OpenVolume(sfsp, &root);
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error opening volume", stat);
+        return stat;
+    }
+
+    // Opening path
+    EFI_FILE_PROTOCOL *sub;
+
+    stat = root->Open(
+        root,
+        &sub,
+        path,
+        EFI_FILE_MODE_READ,
+        0
+    );
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error opening file location", stat);
+        return stat;
+    }
+    // Getting file info
+    EFI_FILE_INFO *info;
+
+    stat = get_info(sub, gBS, &info);
+    if (EFI_ERROR(stat)) { return stat; }
+
+    // Allocating file buffer
+    *file_buff_size = info->FileSize; 
+
+    gBS->FreePool(info);
+
+    stat = gBS->AllocatePool(
+        EfiLoaderData,
+        *file_buff_size,
+        (VOID**) file_buff
+    );
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error allocating file buffer", stat);
+        return stat;
+    }
+
+    // Reading into file buffer
+    stat = sub->Read(
+        sub,
+        file_buff_size,
+        (VOID**) file_buff
+    );
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Error while reading into file buffer", stat);
+        gBS->FreePool(*file_buff);
+        return stat;
+    } 
+
+    return EFI_SUCCESS;
+}
+
 
 CHAR8 *read_config_property(
     CONST CHAR8 *key,
@@ -100,103 +235,25 @@ CHAR8 *read_config_property(
     return NULL;
 }
 
+
 CHAR8 * get_config_property(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
-    CONST char *key,
+    CONST CHAR8 *key,
     CONST EFI_BOOT_SERVICES *gBS,
     EFI_STATUS *efi_status
 ) {
-
-    EFI_FILE_PROTOCOL *root;
-    EFI_STATUS         stat;
-
-    if (
-        (stat = sfsp->OpenVolume(sfsp, &root))
-        != EFI_SUCCESS
-    ) {
-        PrintE(L"Error opening volume", stat);
-        *efi_status = stat;
-        return NULL;
-    }
-
-    EFI_FILE_PROTOCOL *sub;
-
-    stat = root->Open(
-        root,
-        &sub,
-        (CHAR16*) BOOT_CONFIG_PATH,
-        EFI_FILE_MODE_READ,
-        0
-    );
-
-    if (EFI_ERROR(stat)) {
-        PrintE(L"Error opening config file location", stat);
-        *efi_status = stat;
-        return NULL;
-    }
-
-    EFI_FILE_INFO *info = NULL;
-    UINTN buff_size     = 0;
-
-    sub->GetInfo(
-        sub,
-        &gEfiFileInfoGuid,
-        &buff_size,
-        NULL
-    );
-
-    stat = gBS->AllocatePool(
-        EfiLoaderData,
-        buff_size,
-        (VOID**)&info
-    );
-
-    if (EFI_ERROR(stat)) {
-        PrintE(L"Error while allocating info buffer", stat);
-        *efi_status = stat;
-        return NULL;
-    }
-
-    stat = sub->GetInfo(
-        sub,
-        &gEfiFileInfoGuid,
-        &buff_size,
-        (VOID**) &info
-    );
-    if (EFI_ERROR(stat)) {
-        PrintE(L"Error Getting file info", stat);
-        *efi_status = stat;
-        gBS->FreePool(info);
-        return NULL;
-    }
-
     CHAR8 *file_buff;
-    UINT64 file_buff_size = info->FileSize; 
+    UINT64 file_buff_size;
+    *efi_status = EFI_SUCCESS;
 
-    gBS->FreePool(info);
-
-    stat = gBS->AllocatePool(
-        EfiLoaderData,
-        file_buff_size,
-        (VOID**) &file_buff
+    *efi_status = read_file(
+        BOOT_CONFIG_PATH,
+        sfsp,
+        gBS,
+        &file_buff,
+        &file_buff_size
     );
-    if (EFI_ERROR(stat)) {
-        PrintE(L"Error allocating file buffer", stat);
-        *efi_status = stat;
-        return NULL;
-    }
-
-    stat = sub->Read(
-        sub,
-        &file_buff_size,
-        (VOID**) &file_buff
-    );
-    if (EFI_ERROR(stat)) {
-        PrintE(L"Error while reading into file buffer", stat);
-        *efi_status = stat;
-        gBS->FreePool(file_buff);
-        return NULL;
-    }
+    if (EFI_ERROR(*efi_status)) { return NULL; }
 
     CHAR8 *kernel_path = read_config_property(
         KERNEL_PATH_KEY,
@@ -211,7 +268,7 @@ CHAR8 * get_config_property(
             L"Couldn't find correct key in boot config. Kernel path key: |%a|\n",
             KERNEL_PATH_KEY
         );
-        *efi_status = stat;
+        *efi_status = EFI_NOT_FOUND;
         gBS->FreePool(kernel_path);
         return NULL;
     }
@@ -219,25 +276,6 @@ CHAR8 * get_config_property(
     return kernel_path;
 }
 
-CHAR16 *convert_to_char16(CONST CHAR8 *data, CONST EFI_BOOT_SERVICES *gBS) {
-    CONST CHAR8 *ptr = data;
-    CHAR16 *result;
-
-    EFI_STATUS stat = gBS->AllocatePool(
-        EfiLoaderData,
-        AsciiStrLen(data)+1,
-        (VOID**) &result
-    );
-    if (EFI_ERROR(stat)) { return NULL; }
-    
-    while (*ptr != '\0') {
-        *result = (CHAR16) *ptr;
-        ptr++; result++;
-    }
-    *result = L'\0';
-
-    return result;
-}
 
 EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
