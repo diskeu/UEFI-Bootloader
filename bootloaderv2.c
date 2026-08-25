@@ -106,7 +106,6 @@ CHAR8 *read_config_property(
 CHAR8 * get_config_property(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     CONST char *key,
-    CHAR16 *path,
     CONST EFI_BOOT_SERVICES *gBS,
     EFI_STATUS *efi_status
 ) {
@@ -128,7 +127,7 @@ CHAR8 * get_config_property(
     stat = root->Open(
         root,
         &sub,
-        path,
+        (CHAR16*) BOOT_CONFIG_PATH,
         EFI_FILE_MODE_READ,
         0
     );
@@ -262,7 +261,6 @@ EFI_STATUS uefi_main(
         !(kernel_path = get_config_property(
             sfsp,
             "kernel",
-            BOOT_CONFIG_PATH,
             gBS,
             efi_status
         ))
@@ -299,7 +297,6 @@ EFI_STATUS uefi_main(
                 kernel_path = get_config_property(
                     sfsp,
                     "kernel",
-                    BOOT_CONFIG_PATH,
                     gBS,
                     efi_status
                 );
