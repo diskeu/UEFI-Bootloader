@@ -34,15 +34,12 @@ CHAR8 *read_config_property(
     CHAR8 k_buff[CONFIG_LINE_SIZE+1];
     CHAR8 *v_buff;
 
-    gBS->AllocatePool(
+    EFI_STATUS alloc_stat = gBS->AllocatePool(
         EfiLoaderData,
         CONFIG_LINE_SIZE+1,
         (VOID**) &v_buff
     );
-    if (EFI_ERROR(v_buff)) {
-        gBS->FreePool(v_buff);
-        return NULL;
-    }
+    if (EFI_ERROR(alloc_stat)) { return NULL; }
 
     while (read_pos - file_buff < file_buff_size) {
 
@@ -169,11 +166,14 @@ CHAR8 * get_config_property(
     if (EFI_ERROR(stat)) {
         PrintE(L"Error Getting file info", stat);
         *efi_status = stat;
+        gBS->FreePool(info);
         return NULL;
     }
 
     CHAR8 *file_buff;
     UINT64 file_buff_size = info->FileSize; 
+
+    gBS->FreePool(info);
 
     stat = gBS->AllocatePool(
         EfiLoaderData,
@@ -194,6 +194,7 @@ CHAR8 * get_config_property(
     if (EFI_ERROR(stat)) {
         PrintE(L"Error while reading into file buffer", stat);
         *efi_status = stat;
+        gBS->FreePool(file_buff);
         return NULL;
     }
 
@@ -203,6 +204,7 @@ CHAR8 * get_config_property(
         file_buff_size,
         gBS
     );
+    gBS->FreePool(file_buff);
 
     if (!kernel_path) {
         Print(
@@ -210,9 +212,9 @@ CHAR8 * get_config_property(
             KERNEL_PATH_KEY
         );
         *efi_status = stat;
+        gBS->FreePool(kernel_path);
         return NULL;
     }
-    gBS->FreePool(kernel_path);
 
     return kernel_path;
 }
@@ -303,10 +305,12 @@ EFI_STATUS uefi_main(
                 if (kernel_path) { break; }
             }
         }
+        gBS->FreePool(handle_buff);
     }
     if (!kernel_path) {
         PrintE(L"Couldn't get kernel path with handle", *efi_status);
         return *efi_status ? *efi_status : EFI_NOT_FOUND;
     }
+    gBS->FreePool(kernel_path);
     return EFI_SUCCESS;
 }
