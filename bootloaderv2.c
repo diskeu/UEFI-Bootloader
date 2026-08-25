@@ -219,6 +219,26 @@ CHAR8 * get_config_property(
     return kernel_path;
 }
 
+CHAR16 *convert_to_char16(CONST CHAR8 *data, CONST EFI_BOOT_SERVICES *gBS) {
+    CONST CHAR8 *ptr = data;
+    CHAR16 *result;
+
+    EFI_STATUS stat = gBS->AllocatePool(
+        EfiLoaderData,
+        AsciiStrLen(data)+1,
+        (VOID**) &result
+    );
+    if (EFI_ERROR(stat)) { return NULL; }
+    
+    while (*ptr != '\0') {
+        *result = (CHAR16) *ptr;
+        ptr++; result++;
+    }
+    *result = L'\0';
+
+    return result;
+}
+
 EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
     EFI_SYSTEM_TABLE *systemTable
