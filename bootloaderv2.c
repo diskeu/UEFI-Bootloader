@@ -10,6 +10,8 @@
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
 #define CONFIG_LINE_SIZE (256)
+#define BZIMAGE_MAGIC_NUMBER 0x53647248
+#define PROTOCOL_VERSION 0x20F
 
 
 typedef enum {
@@ -274,6 +276,47 @@ CHAR8 * get_config_property(
     }
 
     return kernel_path;
+}
+
+
+EFI_STATUS load_kernel_file(
+    CHAR8 *kernel_path,
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
+    EFI_BOOT_SERVICES *gBS
+) {
+    CHAR8 *kernel;
+    UINT64 *kernel_buff_size;
+    EFI_STATUS stat;
+
+    // Assuming the conversion failed because of allocation problems
+    CHAR16 *kernel_path16;
+    if (
+        !(kernel_path16 = convert_to_char16(kernel_path, gBS))
+    ) {
+        return EFI_OUT_OF_RESOURCES;
+    }
+
+    // Reading file
+    stat = read_file(
+        kernel_path16,
+        sfsp,
+        gBS,
+        &kernel,
+        &kernel_buff_size
+    );
+    if (EFI_ERROR(stat)) { return stat; }
+
+    UINT32 *magic = (UINT32 *)(kernel+0x0202);
+
+    if (*magic != BZIMAGE_MAGIC_NUMBER) {
+        Print(L"Aborting, the boot protocol version is 'old'");
+        return EFI_UNSUPPORTED;
+    }
+    if (*(UINT16*)(kernel + 0x206) > PROTOCOL_VERSION) {
+        Print(L"Aborting, the boot protocol version is not supported");
+        return EFI_UNSUPPORTED;
+    }
+
 }
 
 
