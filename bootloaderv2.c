@@ -12,8 +12,6 @@
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
 #define CONFIG_LINE_SIZE (256)
-#define BZIMAGE_MAGIC_NUMBER 0x53647248
-#define PROTOCOL_VERSION 0x20F
 
 
 typedef enum {
@@ -281,6 +279,10 @@ CHAR8 * get_config_property(
 }
 
 
+#define BZIMAGE_MAGIC_NUMBER 0x53647248
+#define PROTOCOL_VERSION 0x20F
+#define SETUP_HEADER_OFFSET 0x1F1
+
 EFI_STATUS load_kernel_file(
     CHAR8 *kernel_path,
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
@@ -319,6 +321,35 @@ EFI_STATUS load_kernel_file(
         return EFI_UNSUPPORTED;
     }
 
+    /**
+     * Allocate memory for struct boot_params and
+     * initalize it to zero
+    */
+    struct boot_params *boot_param_buff;
+
+    stat = gBS->AllocatePool(
+        EfiLoaderData,
+        sizeof(boot_params),
+        (VOID**) &boot_param_buff
+    );
+    if (EFI_ERROR(stat)) { return stat; }
+
+    gBS->SetMem(boot_param_buff, sizeof(*boot_param_buff), 0);
+
+    /**
+     * Copy setup header from kernel image into `boot_params`
+     */
+    boot_param_buff->setup_header = gBS->CopyMem(
+        boot_param_buff->setup_header,
+        (kernel + SETUP_HEADER_OFFSET) /* 0x1F1 specified by `docs.kernel.org` */,
+        sizeof(boot_param_buff->setup_header)
+    );
+
+    /** Assigned bootloader Id (=Special in our case) */
+    *(UINT8*) (kernel + 0x210) = 0xFF;
+
+    /** Supress early messages, leave rest default */
+    *(UINT8*) (kernel + 0x211) = (*(*UINT8) (kernel + 0x210)) | 0b00000100 /* loadflags */
 }
 
 
