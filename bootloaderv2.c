@@ -6,6 +6,8 @@
 #include <Guid/FileInfo.h>
 #include <Library/BaseLib.h>
 
+#include <bootparam.h>
+
 
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"

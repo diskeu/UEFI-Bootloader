@@ -11,6 +11,7 @@
 
 [Packages]
     MdePkg/MdePkg.dec
+    linux_boot/linux_boot.dec
 
 [LibraryClasses]
     UefiLib

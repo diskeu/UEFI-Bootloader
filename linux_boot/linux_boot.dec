@@ -4,5 +4,5 @@
     PACKAGE_GUID      = 1E73767F-8F52-4603-AEB4-F29B511B6742
     PACKAGE_VERSION   = 1.0
 
-[Include]
+[Includes]
     Include
