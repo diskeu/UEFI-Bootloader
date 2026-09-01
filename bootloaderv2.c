@@ -348,8 +348,9 @@ EFI_STATUS load_kernel_file(
     /** Assigned bootloader Id (=Special in our case) */
     *(UINT8*) (kernel + 0x210) = 0xFF;
 
-    /** Supress early messages, leave rest default */
-    *(UINT8*) (kernel + 0x211) = (*(*UINT8) (kernel + 0x210)) | 0b00000100 /* loadflags */
+    /** Supress early messages and let the kernel use the heap, leave rest default */
+    *(UINT8*) (kernel + 0x211) = (*(*UINT8) (kernel + 0x210)) | 0b00000101; /* loadflags */
+
 }
 
 
