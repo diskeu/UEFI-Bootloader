@@ -349,8 +349,10 @@ EFI_STATUS load_kernel_file(
     *(UINT8*) (kernel + 0x210) = 0xFF;
 
     /** Supress early messages and let the kernel use the heap, leave rest default */
-    *(UINT8*) (kernel + 0x211) = (*(*UINT8) (kernel + 0x210)) | 0b00000101; /* loadflags */
+    *(UINT8*) (kernel + 0x211) = (*(*UINT8) (kernel + 0x210)) | 0b10100000; /* loadflags */
 
+    /** Set `heap_end_ptr` */
+    *(UINT16*) (kernel + 0x224) = 
 }
 
 
