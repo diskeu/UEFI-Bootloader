@@ -339,20 +339,24 @@ EFI_STATUS load_kernel_file(
     /**
      * Copy setup header from kernel image into `boot_params`
      */
-    boot_param_buff->setup_header = gBS->CopyMem(
+    gBS->CopyMem(
         boot_param_buff->setup_header,
         (kernel + SETUP_HEADER_OFFSET) /* 0x1F1 specified by `docs.kernel.org` */,
         sizeof(boot_param_buff->setup_header)
     );
 
+    /**
+     * Set necessary fields of boot_params->setup_header
+     */
+
     /** Assigned bootloader Id (=Special in our case) */
-    *(UINT8*) (kernel + 0x210) = 0xFF;
+    UINT8* type_of_loader = ((UINT8*) (boot_param_buff->setup_header)) + 0x210;
+    *type_of_loader = 0xFF;
 
-    /** Supress early messages and let the kernel use the heap, leave rest default */
-    *(UINT8*) (kernel + 0x211) = (*(*UINT8) (kernel + 0x210)) | 0b10100000; /* loadflags */
+    /** Indicate that the kernel is loaded above 1mb */
+    UINT8* loadflags = ((UINT8*) boot_param_buff->setup_header) + 0x211;
+    *loadflags |= 0b00000001;
 
-    /** Set `heap_end_ptr` */
-    *(UINT16*) (kernel + 0x224) = 
 }
 
 
