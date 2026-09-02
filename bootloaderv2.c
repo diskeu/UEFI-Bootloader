@@ -357,6 +357,14 @@ EFI_STATUS load_kernel_file(
     UINT8* loadflags = ((UINT8*) boot_param_buff->setup_header) + 0x211;
     *loadflags |= 0b00000001;
 
+    /** Set kernel command line pointer to auto */
+    CHAR8 *temp = "auto";
+
+    UINT32 *cmd_line_ptr = (UINT32*) (((UINT8*) boot_param_buff) + 0x228);
+    *cmd_line_ptr = (UINT32) temp; /* Converts CHAR8 * address to 32 bit address  */
+
+    /* Add end bits if address is 64 bit */
+    boot_param_buff->ext_cmd_line_ptr = (UINT64) temp > 0xFFFFFFFF ? (UINT32) ((UINT64) temp >> 32) : 0;
 }
 
 
