@@ -3,6 +3,7 @@
 #define EDDMAXNR 6
 #define EDD_MBR_SIG_MAX 2
 #define E820_MAX_ENTRIES_ZEROPAGE 128
+#define BOOT_E820_ENTRY_SIZE 20 /* sizeof(boot_e820_entry) */
 
 struct boot_params {
 	UINT8 screen_info[0x040]; /* 0x000 */
@@ -43,7 +44,7 @@ struct boot_params {
     */
 	// UINT8  _pad7[0x290-0x1f1-sizeof(struct setup_header)];
 	UINT32 edd_mbr_sig_buffer[EDD_MBR_SIG_MAX];	/* 0x290 */
-	UINT8 boot_e820_entry[(0xcd0 - 0x2d0) - E820_MAX_ENTRIES_ZEROPAGE]; /* 0x2d0 */
+	UINT8 e820_table[BOOT_E820_ENTRY_SIZE * E820_MAX_ENTRIES_ZEROPAGE]; /* 0x2d0 */
 	UINT8  _pad8[48];				/* 0xcd0 */
 	UINT8 edd_info[(0x0d00 - 0xcd0) / EDDMAXNR];	/* 64 bytes*/	/* 0xd00 */
 	UINT8  _pad9[276];				/* 0xeec */
