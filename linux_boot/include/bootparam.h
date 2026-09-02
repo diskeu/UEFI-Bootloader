@@ -9,7 +9,7 @@
 #define E820_MAX_ENTRIES_ZEROPAGE 128
 #define BOOT_E820_ENTRY_SIZE 20 /* sizeof(boot_e820_entry) */
 
-struct boot_params {
+typedef struct {
 	UINT8 screen_info[0x040]; /* 0x000 */
 	UINT8 apm_bios_info[0x054 - 0x040]; /* 0x040 */
 	UINT8  _pad2[4];					/* 0x054 */
@@ -52,6 +52,6 @@ struct boot_params {
 	UINT8  _pad8[48];				/* 0xcd0 */
 	UINT8 edd_info[(0x0d00 - 0xcd0) / EDDMAXNR];	/* 64 bytes*/	/* 0xd00 */
 	UINT8  _pad9[276];				/* 0xeec */
-} __attribute__((packed));
+} boot_params;
 
 #endif

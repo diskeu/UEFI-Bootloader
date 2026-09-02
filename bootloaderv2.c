@@ -289,7 +289,7 @@ EFI_STATUS load_kernel_file(
     EFI_BOOT_SERVICES *gBS
 ) {
     CHAR8 *kernel;
-    UINT64 *kernel_buff_size;
+    UINT64 *kernel_buff_size = {0};
     EFI_STATUS stat;
 
     // Assuming the conversion failed because of allocation problems
@@ -306,7 +306,7 @@ EFI_STATUS load_kernel_file(
         sfsp,
         gBS,
         &kernel,
-        &kernel_buff_size
+        kernel_buff_size
     );
     if (EFI_ERROR(stat)) { return stat; }
 
@@ -322,10 +322,10 @@ EFI_STATUS load_kernel_file(
     }
 
     /**
-     * Allocate memory for struct boot_params and
+     * Allocate memory for boot_params and
      * initalize it to zero
     */
-    struct boot_params *boot_param_buff;
+    boot_params *boot_param_buff;
 
     stat = gBS->AllocatePool(
         EfiLoaderData,
@@ -350,21 +350,23 @@ EFI_STATUS load_kernel_file(
      */
 
     /** Assigned bootloader Id (=Special in our case) */
-    UINT8* type_of_loader = ((UINT8*) (boot_param_buff->setup_header)) + 0x210;
+    UINT8* type_of_loader = ((UINT8*) boot_param_buff) + 0x210;
     *type_of_loader = 0xFF;
 
     /** Indicate that the kernel is loaded above 1mb */
-    UINT8* loadflags = ((UINT8*) boot_param_buff->setup_header) + 0x211;
+    UINT8* loadflags = ((UINT8*) boot_param_buff) + 0x211;
     *loadflags |= 0b00000001;
 
     /** Set kernel command line pointer to auto */
     CHAR8 *temp = "auto";
 
     UINT32 *cmd_line_ptr = (UINT32*) (((UINT8*) boot_param_buff) + 0x228);
-    *cmd_line_ptr = (UINT32) temp; /* Converts CHAR8 * address to 32 bit address  */
+    *cmd_line_ptr = (UINT32) (UINT64) temp; /* Converts CHAR8 * address to 32 bit address  */
 
     /* Add end bits if address is 64 bit */
     boot_param_buff->ext_cmd_line_ptr = (UINT64) temp > 0xFFFFFFFF ? (UINT32) ((UINT64) temp >> 32) : 0;
+
+    return EFI_SUCCESS;
 }
 
 
