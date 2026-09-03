@@ -7,7 +7,7 @@
 #include <Library/BaseLib.h>
 
 #include <bootparam.h>
-
+#include <e820_entry.h>
 
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
@@ -366,7 +366,65 @@ EFI_STATUS load_kernel_file(
     /* Add end bits if address is 64 bit */
     boot_param_buff->ext_cmd_line_ptr = (UINT64) temp > 0xFFFFFFFF ? (UINT32) ((UINT64) temp >> 32) : 0;
 
+    /* Setting memory map */
+    UINTN                   memory_map_size = 0;
+    EFI_MEMORY_DESCRIPTOR   *memory_map = {0};
+    UINTN                   map_key;
+    UINTN                   descriptor_size;
+    UINT32                  descriptor_version;
+
+    /**
+     * One time finding memory_map_size and
+     * one time actually getting the results
+     */
+    stat = gBS->GetMemoryMap(
+        &memory_map_size,
+        memory_map,
+        &map_key,
+        &descriptor_size,
+        &descriptor_version
+    );
+    if (EFI_ERROR(stat) && stat != EFI_BUFFER_TOO_SMALL) { return stat; }
+
+    stat = gBS->AllocatePool(
+        EfiLoaderData,
+        memory_map_size,
+        (VOID**) &memory_map
+    );
+    if (EFI_ERROR(stat)) { return stat; }
+
+    /* Call memory map with correct buffer size */
+    stat = gBS->GetMemoryMap(
+        &memory_map_size,
+        memory_map,
+        &map_key,
+        &descriptor_size,
+        &descriptor_version
+    );
+    if (EFI_ERROR(stat)) { return stat; }
+
+    /* Setting number of entries in e820_entry */
+    boot_param_buff->e820_entries = memory_map_size / sizeof(memory_map);
+
+    /* Iterating through every descriptor */
+    for (
+        EFI_MEMORY_DESCRIPTOR *descriptor = memory_map;
+        descriptor < boot_param_buff->e820_entries;
+        descriptor++
+    ) {
+        // size_t i = descriptor - memory_map;
+
+        ptr_diff_t current = BOOT_E820_ENTRY_SIZE * (descriptor - memory_map);
+        boot_param_buff->e820_table[current] = (e820entry) {
+            .addr = descriptor->PhysicalStart,
+            .size = descriptor->NumberOfPages * 4096,
+            .type = descriptor->Type
+        };
+
+    }
+
     return EFI_SUCCESS;
+    
 }
 
 
