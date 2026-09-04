@@ -8,6 +8,7 @@
 
 #include <bootparam.h>
 #include <e820_entry.h>
+#include <e820_types.h>
 
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
@@ -415,10 +416,51 @@ EFI_STATUS load_kernel_file(
         // size_t i = descriptor - memory_map;
 
         ptr_diff_t current = BOOT_E820_ENTRY_SIZE * (descriptor - memory_map);
+
+        UINT32 e820_type;
+
+        // get e820_type
+        switch (descriptor->Type) {
+
+            case EfiLoaderCode:
+            case EfiLoaderData:
+            case EfiBootServicesCode:
+            case EfiBootServicesData:
+            case EfiConventionalMemory:
+                e820_type = E820_TYPE_RAM;
+                break;
+
+            case EfiReservedMemoryType:
+            case EfiRuntimeServicesCode:
+            case EfiRuntimeServicesData:
+            case EfiUnusableMemory:
+            case EfiMemoryMappedIO:
+            case EfiMemoryMappedIOPortSpace:
+            case EfiPalCode:
+                e820_type = E820_TYPE_RESERVED;
+                break;
+            
+            case EfiACPIReclaimMemory:
+                e820_type = E820_TYPE_ACPI;
+                break;
+
+            case EfiACPIMemoryNVS:
+                e820_type = E820_TYPE_NVS;
+                break;
+
+            case EfiPersistentMemory:
+                e820_type = E820_TYPE_PMEM;
+                break;
+            
+            default:
+                e820_type = E820_TYPE_RESERVED;
+                break;
+        }
+        
         boot_param_buff->e820_table[current] = (e820entry) {
             .addr = descriptor->PhysicalStart,
             .size = descriptor->NumberOfPages * 4096,
-            .type = descriptor->Type
+            .type = e820_type
         };
 
     }
