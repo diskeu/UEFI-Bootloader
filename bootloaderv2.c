@@ -15,6 +15,9 @@
 #define CONFIG_LINE_SIZE (256)
 
 
+static EFI_HANDLE this_handle;
+
+
 typedef enum {
     KEY,
     VALUE,
@@ -462,8 +465,11 @@ EFI_STATUS load_kernel_file(
             .size = descriptor->NumberOfPages * 4096,
             .type = e820_type
         };
-
     }
+
+    // Exit Boot services
+    stat = gBS->ExitBootServices(this_handle, map_key);
+    if (EFI_ERROR(stat)) { return stat; }
     
     /* Kernel entry point */
     UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
@@ -490,6 +496,8 @@ EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
     EFI_SYSTEM_TABLE *systemTable
 ) {
+    // Set global imageHandle
+    this_handle = imageHandle;
 
     // OpenProtocol changes the `loaded_image` pointer itself to the protocol
     EFI_LOADED_IMAGE_PROTOCOL       *loaded_image;
