@@ -464,6 +464,22 @@ EFI_STATUS load_kernel_file(
         };
 
     }
+    
+    /* Kernel entry point */
+    UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
+
+    __asm__ __volatile__ (
+        "cli\n"             // deactivate interrupts
+        "mov %0, %%rsi\n"   // RSI = boot_params
+        "xor $0, %%rdi\n"   // RDI = 0
+        "xor $0, %%rbp\n"   // RBP = 0
+        "xor $0, %%rbx\n"   // RBX = 0
+        "xor $0, %%rdx\n"   // RDX = 0
+        "jmp *%1\n"         // jump to kernel entry point
+        :
+        : "r"(boot_param_buff), "r"(entry_point)
+        : "rsi", "rdi", "rbp", "rbx", "rdx" 
+    )
 
     return EFI_SUCCESS;
     
