@@ -283,6 +283,51 @@ CHAR8 * get_config_property(
 }
 
 
+EFI_STATUS get_memory_map(
+    UINTN                       *memory_map_size,
+    EFI_MEMORY_DESCRIPTOR       *MemoryMap,
+    UINTN                       *map_key,
+    UINTN                       *descriptor_size,
+    EFI_BOOT_SERVICES           *gBS
+) {
+
+    UINTN                   memory_map_size = 0;
+    EFI_MEMORY_DESCRIPTOR   *memory_map = {0};
+    UINT32                  descriptor_version;
+    EFI_STATUS              stat;
+
+    /**
+     * One time finding memory_map_size and
+     * one time actually getting the results
+     */
+    stat = gBS->GetMemoryMap(
+        &memory_map_size,
+        memory_map,
+        &map_key,
+        &descriptor_size,
+        &descriptor_version
+    );
+    if (EFI_ERROR(stat) && stat != EFI_BUFFER_TOO_SMALL) { return stat; }
+
+    stat = gBS->AllocatePool(
+        EfiLoaderData,
+        memory_map_size,
+        (VOID**) &memory_map
+    );
+    if (EFI_ERROR(stat)) { return stat; }
+
+    /* Call memory map with correct buffer size */
+    stat = gBS->GetMemoryMap(
+        &memory_map_size,
+        memory_map,
+        &map_key,
+        &descriptor_size,
+        &descriptor_version
+    );
+    return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
+}
+
+
 #define BZIMAGE_MAGIC_NUMBER 0x53647248
 #define PROTOCOL_VERSION 0x20F
 #define SETUP_HEADER_OFFSET 0x1F1
@@ -375,36 +420,15 @@ EFI_STATUS load_kernel_file(
     EFI_MEMORY_DESCRIPTOR   *memory_map = {0};
     UINTN                   map_key;
     UINTN                   descriptor_size;
-    UINT32                  descriptor_version;
 
-    /**
-     * One time finding memory_map_size and
-     * one time actually getting the results
-     */
-    stat = gBS->GetMemoryMap(
+    /* Get memory map */
+    stat = get_memory_map(
         &memory_map_size,
         memory_map,
         &map_key,
         &descriptor_size,
-        &descriptor_version
-    );
-    if (EFI_ERROR(stat) && stat != EFI_BUFFER_TOO_SMALL) { return stat; }
-
-    stat = gBS->AllocatePool(
-        EfiLoaderData,
-        memory_map_size,
-        (VOID**) &memory_map
-    );
-    if (EFI_ERROR(stat)) { return stat; }
-
-    /* Call memory map with correct buffer size */
-    stat = gBS->GetMemoryMap(
-        &memory_map_size,
-        memory_map,
-        &map_key,
-        &descriptor_size,
-        &descriptor_version
-    );
+        &gBS
+    )
     if (EFI_ERROR(stat)) { return stat; }
 
     /* Setting number of entries in e820_entry */
@@ -469,7 +493,10 @@ EFI_STATUS load_kernel_file(
 
     // Exit Boot services
     stat = gBS->ExitBootServices(this_handle, map_key);
-    if (EFI_ERROR(stat)) { return stat; }
+    if (EFI_ERROR(stat)) {
+        gBS->FreePool((VOID*) memory_map);
+        return stat;
+    }
     
     /* Kernel entry point */
     UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
@@ -587,5 +614,13 @@ EFI_STATUS uefi_main(
         return *efi_status ? *efi_status : EFI_NOT_FOUND;
     }
     gBS->FreePool(kernel_path);
+
+    stat = load_kernel_file(kernel_path, sfsp, gBS);
+    if (EFI_ERROR(stat)) {
+        PrintE(L"Couldn't load kernel file", stat);
+
+        // TODO: Still try exiting boot services
+    }
+
     return EFI_SUCCESS;
 }
