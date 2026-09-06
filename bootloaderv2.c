@@ -494,8 +494,28 @@ EFI_STATUS load_kernel_file(
     // Exit Boot services
     stat = gBS->ExitBootServices(this_handle, map_key);
     if (EFI_ERROR(stat)) {
-        gBS->FreePool((VOID*) memory_map);
-        return stat;
+    
+        PrintE(L"Couldn't exit boot services", stat);
+
+        /* Still try exiting boot services */
+
+        /* Get memory map */
+        stat = get_memory_map(
+            &memory_map_size,
+            memory_map,
+            &map_key,
+            &descriptor_size,
+            &gBS
+        )
+
+        if (EFI_ERROR(stat)) {
+            // ...Well...,
+            // there is nothing we can do about it...
+            PrintE("Retry of exiting boot services failed", stat);
+
+            gBS->FreePool((VOID*) memory_map);
+            return stat;
+        }
     }
     
     /* Kernel entry point */
@@ -515,7 +535,6 @@ EFI_STATUS load_kernel_file(
     )
 
     return EFI_SUCCESS;
-    
 }
 
 
@@ -616,11 +635,6 @@ EFI_STATUS uefi_main(
     gBS->FreePool(kernel_path);
 
     stat = load_kernel_file(kernel_path, sfsp, gBS);
-    if (EFI_ERROR(stat)) {
-        PrintE(L"Couldn't load kernel file", stat);
 
-        // TODO: Still try exiting boot services
-    }
-
-    return EFI_SUCCESS;
+    return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
 }
