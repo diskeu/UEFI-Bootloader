@@ -285,14 +285,14 @@ CHAR8 * get_config_property(
 
 EFI_STATUS get_memory_map(
     UINTN                       *memory_map_size,
-    EFI_MEMORY_DESCRIPTOR       *MemoryMap,
+    EFI_MEMORY_DESCRIPTOR       *memory_map,
     UINTN                       *map_key,
     UINTN                       *descriptor_size,
     EFI_BOOT_SERVICES           *gBS
 ) {
 
-    UINTN                   memory_map_size = 0;
-    EFI_MEMORY_DESCRIPTOR   *memory_map = {0};
+    memory_map_size = 0;
+    memory_map = NULL;
     UINT32                  descriptor_version;
     EFI_STATUS              stat;
 
@@ -301,27 +301,27 @@ EFI_STATUS get_memory_map(
      * one time actually getting the results
      */
     stat = gBS->GetMemoryMap(
-        &memory_map_size,
+        memory_map_size,
         memory_map,
-        &map_key,
-        &descriptor_size,
+        map_key,
+        descriptor_size,
         &descriptor_version
     );
     if (EFI_ERROR(stat) && stat != EFI_BUFFER_TOO_SMALL) { return stat; }
 
     stat = gBS->AllocatePool(
         EfiLoaderData,
-        memory_map_size,
+        *memory_map_size,
         (VOID**) &memory_map
     );
     if (EFI_ERROR(stat)) { return stat; }
 
     /* Call memory map with correct buffer size */
     stat = gBS->GetMemoryMap(
-        &memory_map_size,
+        memory_map_size,
         memory_map,
-        &map_key,
-        &descriptor_size,
+        map_key,
+        descriptor_size,
         &descriptor_version
     );
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
@@ -427,8 +427,8 @@ EFI_STATUS load_kernel_file(
         memory_map,
         &map_key,
         &descriptor_size,
-        &gBS
-    )
+        gBS
+    );
     if (EFI_ERROR(stat)) { return stat; }
 
     /* Setting number of entries in e820_entry */
@@ -437,12 +437,9 @@ EFI_STATUS load_kernel_file(
     /* Iterating through every descriptor */
     for (
         EFI_MEMORY_DESCRIPTOR *descriptor = memory_map;
-        descriptor < boot_param_buff->e820_entries;
+        descriptor - memory_map < boot_param_buff->e820_entries;
         descriptor++
     ) {
-        // size_t i = descriptor - memory_map;
-
-        ptr_diff_t current = BOOT_E820_ENTRY_SIZE * (descriptor - memory_map);
 
         UINT32 e820_type;
 
@@ -484,7 +481,9 @@ EFI_STATUS load_kernel_file(
                 break;
         }
         
-        boot_param_buff->e820_table[current] = (e820entry) {
+        boot_param_buff->e820_table[
+            BOOT_E820_ENTRY_SIZE * (descriptor - memory_map)
+        ] = (e820entry) {
             .addr = descriptor->PhysicalStart,
             .size = descriptor->NumberOfPages * 4096,
             .type = e820_type
@@ -505,13 +504,13 @@ EFI_STATUS load_kernel_file(
             memory_map,
             &map_key,
             &descriptor_size,
-            &gBS
-        )
+            gBS
+        );
 
         if (EFI_ERROR(stat)) {
             // ...Well...,
             // there is nothing we can do about it...
-            PrintE("Retry of exiting boot services failed", stat);
+            PrintE(L"Retry of exiting boot services failed", stat);
 
             gBS->FreePool((VOID*) memory_map);
             return stat;
@@ -532,7 +531,7 @@ EFI_STATUS load_kernel_file(
         :
         : "r"(boot_param_buff), "r"(entry_point)
         : "rsi", "rdi", "rbp", "rbx", "rdx" 
-    )
+    );
 
     return EFI_SUCCESS;
 }
@@ -634,7 +633,7 @@ EFI_STATUS uefi_main(
     }
     gBS->FreePool(kernel_path);
 
-    stat = load_kernel_file(kernel_path, sfsp, gBS);
+    EFI_STATUS stat = load_kernel_file(kernel_path, sfsp, gBS);
 
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
 }
