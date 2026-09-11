@@ -520,6 +520,10 @@ EFI_STATUS load_kernel_file(
     /* Kernel entry point */
     UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
 
+    /* Timeout to view cli logs */
+    Print("Timeout before JMP...");
+    gBS->Stall(4e6);
+
     __asm__ __volatile__ (
         "cli\n"             // deactivate interrupts
         "mov %0, %%rsi\n"   // RSI = boot_params
@@ -634,6 +638,10 @@ EFI_STATUS uefi_main(
     gBS->FreePool(kernel_path);
 
     EFI_STATUS stat = load_kernel_file(kernel_path, sfsp, gBS);
+
+    /* Timeout to view cli logs */
+    Print("Timeout...");
+    gBS->Stall(4e6);
 
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
 }
