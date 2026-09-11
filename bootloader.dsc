@@ -24,4 +24,4 @@
     StackCheckFailureHookLib|MdePkg/Library/StackCheckFailureHookLibNull/StackCheckFailureHookLibNull.inf
 
 [Components]
-    bootloader.inf
+    src/bootloader.inf
