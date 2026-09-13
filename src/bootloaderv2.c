@@ -168,7 +168,7 @@ EFI_STATUS read_file(
     stat = sub->Read(
         sub,
         file_buff_size,
-        file_buff
+        *file_buff
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Error while reading into file buffer", stat);
