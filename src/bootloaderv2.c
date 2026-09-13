@@ -31,22 +31,34 @@ static void PrintE(CONST CHAR16 *msg, CONST EFI_STATUS stat) {
 }
 
 
+static void Puts(CONST CHAR16 *msg) {
+    Print(msg); Print(L"\n");
+}
+
+
 CHAR16 *convert_to_char16(CONST CHAR8 *data, CONST EFI_BOOT_SERVICES *gBS) {
-    CONST CHAR8 *ptr = data;
+    Puts(L"convert_to_char16");
+
+    UINTN len = AsciiStrLen(data);
     CHAR16 *result;
+    CHAR16 *ptr;
 
     EFI_STATUS stat = gBS->AllocatePool(
         EfiLoaderData,
-        AsciiStrLen(data)+1,
-        (VOID**) &result
+        (len + 1) * sizeof(CHAR16),
+        (VOID **)&result
     );
-    if (EFI_ERROR(stat)) { return NULL; }
-    
-    while (*ptr != '\0') {
-        *result = (CHAR16) *ptr;
-        ptr++; result++;
+
+    if (EFI_ERROR(stat)) {
+        return NULL;
     }
-    *result = L'\0';
+    ptr = result;
+
+    while (*data != '\0') {
+        *ptr = (CHAR16)*data;
+        data++; ptr++;
+    }
+    *ptr = L'\0';
 
     return result;
 }
@@ -57,6 +69,7 @@ EFI_STATUS get_info(
     CONST EFI_BOOT_SERVICES *gBS,
     EFI_FILE_INFO **info
 ) {
+    Puts(L"get_info"); /* Temp debug */
     UINTN buff_size     = 0;
     EFI_STATUS stat;
 
@@ -82,7 +95,7 @@ EFI_STATUS get_info(
         sub,
         &gEfiFileInfoGuid,
         &buff_size,
-        (VOID**) info
+        *info
     );
 
     if (EFI_ERROR(stat)) {
@@ -101,6 +114,8 @@ EFI_STATUS read_file(
     OUT CHAR8 **file_buff,
     OUT UINT64 *file_buff_size
 ) {
+    Puts(L"read_file"); /* Temp debug */
+
     // Opening root-directory
     EFI_FILE_PROTOCOL *root;
     EFI_STATUS         stat;
@@ -123,6 +138,7 @@ EFI_STATUS read_file(
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Error opening file location", stat);
+        if (stat == EFI_NOT_FOUND) { Puts(L"File does not exist"); }
         return stat;
     }
     // Getting file info
@@ -136,6 +152,7 @@ EFI_STATUS read_file(
 
     gBS->FreePool(info);
 
+    Print(L"File buffer size - %llu", *file_buff_size);
     stat = gBS->AllocatePool(
         EfiLoaderData,
         *file_buff_size,
@@ -146,11 +163,12 @@ EFI_STATUS read_file(
         return stat;
     }
 
+    Puts(L"Reading into file buffer...");
     // Reading into file buffer
     stat = sub->Read(
         sub,
         file_buff_size,
-        (VOID**) file_buff
+        file_buff
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Error while reading into file buffer", stat);
@@ -168,12 +186,16 @@ CHAR8 *read_config_property(
     CONST UINT64 file_buff_size,
     CONST EFI_BOOT_SERVICES *gBS
 ) {
+    Puts(L"read_config_property"); /* Temp debug */
+
     CONST CHAR8 *read_pos      = file_buff;
     ReadingState read_st       = KEY;
     short k_buff_i             = 0,
           v_buff_i             = 0;
     CHAR8 k_buff[CONFIG_LINE_SIZE+1];
     CHAR8 *v_buff;
+
+    if (!*file_buff) { Puts(L"E"); }
 
     EFI_STATUS alloc_stat = gBS->AllocatePool(
         EfiLoaderData,
@@ -182,11 +204,22 @@ CHAR8 *read_config_property(
     );
     if (EFI_ERROR(alloc_stat)) { return NULL; }
 
+    Print(L"File buffer size - %llu\n", file_buff_size);
     while (read_pos - file_buff < file_buff_size) {
+        Puts(L"Endless loop debug point");
+        Print(L"KBUFF_I - %d\n", k_buff_i);
+        Print(L"VBUFF_I - %d\n", v_buff_i);
+        // CHAR16 c[2];
+        // c[0] = (CHAR16)*read_pos;
+        // c[1] = L'\0';
+        // Puts(L"READ=");
+        // Puts(c);
+        // Puts(L"\r\n");
 
         switch (read_st) {
 
             case MV_UNTIL_NEXT_KEY:
+                Puts(L"MV_UNTIL_NEXT_KEY");
                 if (*read_pos == '\n') {
                     read_st = KEY;
                 } else {
@@ -195,20 +228,16 @@ CHAR8 *read_config_property(
                 break;
 
             case KEY:
-                if (
-                    *read_pos != '#' ||
-                    *read_pos != '=' ||
-                    *read_pos != ' '
-                ) {
-
-                }
+                Puts(L"KEY");
                 switch (*read_pos) {
 
                     case '#':
+                        Puts(L"#");
                         read_st = MV_UNTIL_NEXT_KEY;
                         break;
                     
                     case '=':
+                        Puts(L"=");
                         k_buff[k_buff_i] = '\0';
                         if (AsciiStrCmp(key, k_buff)) {
                             read_st = VALUE;
@@ -218,14 +247,19 @@ CHAR8 *read_config_property(
                         read_st  = MV_UNTIL_NEXT_KEY;
                         break;
                     
-                    case ' ': break;
+                    case ' ':
+                        Puts(L"SPACE");
+                        break;
 
                     default:
+                        Puts(L"Default");
                         k_buff[k_buff_i++] = *read_pos;
-                        
+                        Puts(L"After efault");
                 }
+                break;
 
             case VALUE:
+                Puts(L"VALUE");
                 if (
                     *read_pos == '#' ||
                     *read_pos == '\r' ||
@@ -248,6 +282,8 @@ CHAR8 * get_config_property(
     CONST EFI_BOOT_SERVICES *gBS,
     EFI_STATUS *efi_status
 ) {
+    Puts(L"get_config_property"); /* Temp debug */
+
     CHAR8 *file_buff;
     UINT64 file_buff_size;
     *efi_status = EFI_SUCCESS;
@@ -267,7 +303,9 @@ CHAR8 * get_config_property(
         file_buff_size,
         gBS
     );
+    Puts(L"Read config property...");
     gBS->FreePool(file_buff);
+    Puts(L"Freed file buffer");
 
     if (!kernel_path) {
         Print(
@@ -278,6 +316,7 @@ CHAR8 * get_config_property(
         gBS->FreePool(kernel_path);
         return NULL;
     }
+    Puts(L"Found kernel path");
 
     return kernel_path;
 }
@@ -290,6 +329,7 @@ EFI_STATUS get_memory_map(
     UINTN                       *descriptor_size,
     EFI_BOOT_SERVICES           *gBS
 ) {
+    Puts(L"get_memory_map"); /* Temp debug */
 
     memory_map_size = 0;
     memory_map = NULL;
@@ -337,6 +377,8 @@ EFI_STATUS load_kernel_file(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     EFI_BOOT_SERVICES *gBS
 ) {
+    Puts(L"load_kernel_file"); /* Temp debug */
+
     CHAR8 *kernel;
     UINT64 *kernel_buff_size = {0};
     EFI_STATUS stat;
@@ -362,11 +404,11 @@ EFI_STATUS load_kernel_file(
     UINT32 *magic = (UINT32 *)(kernel+0x0202);
 
     if (*magic != BZIMAGE_MAGIC_NUMBER) {
-        Print(L"Aborting, the boot protocol version is 'old'");
+        Puts(L"Aborting, the boot protocol version is 'old'");
         return EFI_UNSUPPORTED;
     }
     if (*(UINT16*)(kernel + 0x206) > PROTOCOL_VERSION) {
-        Print(L"Aborting, the boot protocol version is not supported");
+        Puts(L"Aborting, the boot protocol version is not supported");
         return EFI_UNSUPPORTED;
     }
 
@@ -521,7 +563,7 @@ EFI_STATUS load_kernel_file(
     UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
 
     /* Timeout to view cli logs */
-    Print("Timeout before JMP...");
+    Puts(L"Timeout before JMP...");
     gBS->Stall(4e6);
 
     __asm__ __volatile__ (
@@ -545,6 +587,8 @@ EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
     EFI_SYSTEM_TABLE *systemTable
 ) {
+    Puts(L"uefi_main"); /* Temp debug */
+
     // Set global imageHandle
     this_handle = imageHandle;
 
@@ -576,11 +620,11 @@ EFI_STATUS uefi_main(
             NULL,
             EFI_OPEN_PROTOCOL_GET_PROTOCOL
         );
-        if (sfsp_stat != EFI_SUCCESS) { return sfsp_stat; }
+        if (sfsp_stat != EFI_SUCCESS) { gBS->Stall(4e6); return sfsp_stat; }
     }
 
     CHAR8 *kernel_path = NULL;
-    EFI_STATUS *efi_status = NULL;
+    EFI_STATUS efi_status;
 
     if (
         !sfsp ||
@@ -588,9 +632,10 @@ EFI_STATUS uefi_main(
             sfsp,
             "kernel",
             gBS,
-            efi_status
+            &efi_status
         ))
     ) {
+        Puts(L"Kernel path couldn't be found - Fallback...");
         // Fallback
         EFI_HANDLE *handle_buff;
         UINTN handle_count = 0;
@@ -603,7 +648,11 @@ EFI_STATUS uefi_main(
             &handle_buff
         );
         
-        if (EFI_ERROR(sfsp_stat)) { return sfsp_stat; }
+        if (EFI_ERROR(sfsp_stat)) {
+            PrintE(L"Error locating handle buffer", sfsp_stat);
+            gBS->Stall(4e6);
+            return sfsp_stat;
+        }
         
         for (
             EFI_HANDLE *handle = handle_buff;
@@ -624,7 +673,7 @@ EFI_STATUS uefi_main(
                     sfsp,
                     "kernel",
                     gBS,
-                    efi_status
+                    &efi_status
                 );
                 if (kernel_path) { break; }
             }
@@ -632,15 +681,16 @@ EFI_STATUS uefi_main(
         gBS->FreePool(handle_buff);
     }
     if (!kernel_path) {
-        PrintE(L"Couldn't get kernel path with handle", *efi_status);
-        return *efi_status ? *efi_status : EFI_NOT_FOUND;
+        PrintE(L"Couldn't get kernel path with handle", efi_status);
+        gBS->Stall(4e6);
+        return efi_status ? efi_status : EFI_NOT_FOUND;
     }
     gBS->FreePool(kernel_path);
 
     EFI_STATUS stat = load_kernel_file(kernel_path, sfsp, gBS);
 
     /* Timeout to view cli logs */
-    Print("Timeout...");
+    Puts(L"Timeout...");
     gBS->Stall(4e6);
 
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
