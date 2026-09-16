@@ -188,7 +188,6 @@ CHAR8 *read_config_property(
 ) {
     Puts(L"read_config_property"); /* Temp debug */
 
-    CONST CHAR8 *read_pos      = file_buff;
     ReadingState read_st       = KEY;
     short k_buff_i             = 0,
           v_buff_i             = 0;
@@ -205,16 +204,21 @@ CHAR8 *read_config_property(
     if (EFI_ERROR(alloc_stat)) { return NULL; }
 
     Print(L"File buffer size - %llu\n", file_buff_size);
-    while (read_pos - file_buff < file_buff_size) {
-        Puts(L"Endless loop debug point");
+    for (CONST CHAR8 *read_pos = file_buff; read_pos - file_buff < file_buff_size; read_pos++) {
+
+               /* Temporary Debug*/
+        /* ============================= */
         Print(L"KBUFF_I - %d\n", k_buff_i);
         Print(L"VBUFF_I - %d\n", v_buff_i);
-        // CHAR16 c[2];
-        // c[0] = (CHAR16)*read_pos;
-        // c[1] = L'\0';
-        // Puts(L"READ=");
-        // Puts(c);
-        // Puts(L"\r\n");
+        CHAR16 c[2];
+        c[0] = (CHAR16)*read_pos;
+        c[1] = L'\0';
+        Puts(L"READ=");
+        Print(c);
+        Puts(L"\r\n");
+        Print(L"Offset to start - %d\n", read_pos - file_buff);
+        gBS->Stall(1e5);
+        /* ============================= */
 
         switch (read_st) {
 
@@ -232,14 +236,12 @@ CHAR8 *read_config_property(
                 switch (*read_pos) {
 
                     case '#':
-                        Puts(L"#");
                         read_st = MV_UNTIL_NEXT_KEY;
                         break;
                     
                     case '=':
-                        Puts(L"=");
                         k_buff[k_buff_i] = '\0';
-                        if (AsciiStrCmp(key, k_buff)) {
+                        if (AsciiStrCmp(key, k_buff) == 0) {
                             read_st = VALUE;
                             break;
                         }
@@ -248,13 +250,10 @@ CHAR8 *read_config_property(
                         break;
                     
                     case ' ':
-                        Puts(L"SPACE");
                         break;
 
                     default:
-                        Puts(L"Default");
                         k_buff[k_buff_i++] = *read_pos;
-                        Puts(L"After efault");
                 }
                 break;
 
@@ -303,9 +302,7 @@ CHAR8 * get_config_property(
         file_buff_size,
         gBS
     );
-    Puts(L"Read config property...");
     gBS->FreePool(file_buff);
-    Puts(L"Freed file buffer");
 
     if (!kernel_path) {
         Print(
@@ -316,8 +313,6 @@ CHAR8 * get_config_property(
         gBS->FreePool(kernel_path);
         return NULL;
     }
-    Puts(L"Found kernel path");
-
     return kernel_path;
 }
 
@@ -383,13 +378,16 @@ EFI_STATUS load_kernel_file(
     UINT64 *kernel_buff_size = {0};
     EFI_STATUS stat;
 
+    CHAR16 *kernel_path16 = convert_to_char16(kernel_path, gBS);
+    gBS->FreePool(kernel_path);
+
     // Assuming the conversion failed because of allocation problems
-    CHAR16 *kernel_path16;
-    if (
-        !(kernel_path16 = convert_to_char16(kernel_path, gBS))
-    ) {
+    if (!kernel_path16) {
         return EFI_OUT_OF_RESOURCES;
     }
+
+    Print(L"Kernel path len =%d", StrLen(kernel_path16));
+    Print(kernel_path16); Puts(L"");
 
     // Reading file
     stat = read_file(
@@ -399,6 +397,7 @@ EFI_STATUS load_kernel_file(
         &kernel,
         kernel_buff_size
     );
+    // TODO: Free kernel_path here
     if (EFI_ERROR(stat)) { return stat; }
 
     UINT32 *magic = (UINT32 *)(kernel+0x0202);
@@ -685,13 +684,12 @@ EFI_STATUS uefi_main(
         gBS->Stall(4e6);
         return efi_status ? efi_status : EFI_NOT_FOUND;
     }
-    gBS->FreePool(kernel_path);
 
     EFI_STATUS stat = load_kernel_file(kernel_path, sfsp, gBS);
 
     /* Timeout to view cli logs */
     Puts(L"Timeout...");
-    gBS->Stall(4e6);
+    gBS->Stall(24e6);
 
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
 }
