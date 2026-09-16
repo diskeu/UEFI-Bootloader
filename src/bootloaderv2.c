@@ -330,8 +330,6 @@ EFI_STATUS get_memory_map(
 ) {
     Puts(L"get_memory_map"); /* Temp debug */
 
-    memory_map_size = 0;
-    memory_map = NULL;
     UINT32                  descriptor_version;
     EFI_STATUS              stat;
 
@@ -354,6 +352,9 @@ EFI_STATUS get_memory_map(
         (VOID**) &memory_map
     );
     if (EFI_ERROR(stat)) { return stat; }
+
+    /* Add extra space for the allocation above */
+    *memory_map_size += *descriptor_size * 2;
 
     /* Call memory map with correct buffer size */
     stat = gBS->GetMemoryMap(
@@ -463,30 +464,27 @@ EFI_STATUS load_kernel_file(
 
     /* Setting memory map */
     UINTN                   memory_map_size = 0;
-    EFI_MEMORY_DESCRIPTOR   *memory_map = {0};
+    EFI_MEMORY_DESCRIPTOR   memory_map;
     UINTN                   map_key;
     UINTN                   descriptor_size;
 
     /* Get memory map */
     stat = get_memory_map(
         &memory_map_size,
-        memory_map,
+        &memory_map,
         &map_key,
         &descriptor_size,
         gBS
     );
-    if (EFI_ERROR(stat)) {
-        Puts(L"get_memory_map failed");
-        return stat;
-    }
+    if (EFI_ERROR(stat)) { return stat; }
 
     /* Setting number of entries in e820_entry */
     boot_param_buff->e820_entries = memory_map_size / sizeof(memory_map);
 
     /* Iterating through every descriptor */
     for (
-        EFI_MEMORY_DESCRIPTOR *descriptor = memory_map;
-        descriptor - memory_map < boot_param_buff->e820_entries;
+        EFI_MEMORY_DESCRIPTOR *descriptor = &memory_map;
+        descriptor - &memory_map < boot_param_buff->e820_entries;
         descriptor++
     ) {
 
@@ -531,7 +529,7 @@ EFI_STATUS load_kernel_file(
         }
         
         boot_param_buff->e820_table[
-            BOOT_E820_ENTRY_SIZE * (descriptor - memory_map)
+            BOOT_E820_ENTRY_SIZE * (descriptor - &memory_map)
         ] = (e820entry) {
             .addr = descriptor->PhysicalStart,
             .size = descriptor->NumberOfPages * 4096,
@@ -550,7 +548,7 @@ EFI_STATUS load_kernel_file(
         /* Get memory map */
         stat = get_memory_map(
             &memory_map_size,
-            memory_map,
+            &memory_map,
             &map_key,
             &descriptor_size,
             gBS
@@ -561,17 +559,13 @@ EFI_STATUS load_kernel_file(
             // there is nothing we can do about it...
             PrintE(L"Retry of exiting boot services failed", stat);
 
-            gBS->FreePool((VOID*) memory_map);
+            gBS->FreePool(&memory_map);
             return stat;
         }
     }
     
     /* Kernel entry point */
     UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
-
-    /* Timeout to view cli logs */
-    Puts(L"Timeout before JMP...");
-    gBS->Stall(4e6);
 
     __asm__ __volatile__ (
         "cli\n"             // deactivate interrupts
