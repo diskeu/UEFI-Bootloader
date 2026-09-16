@@ -147,12 +147,16 @@ EFI_STATUS read_file(
     stat = get_info(sub, gBS, &info);
     if (EFI_ERROR(stat)) { return stat; }
 
-    // Allocating file buffer
-    *file_buff_size = info->FileSize; 
+         /* temp debug */
+    /* ===================== */
+    Print(L"info->FileName - %s\n", info->FileName);
+    Print(L"info->FileSize - %llu\n", info->FileSize);
+    /* ===================== */
 
+    *file_buff_size = info->FileSize; 
     gBS->FreePool(info);
 
-    Print(L"File buffer size - %llu", *file_buff_size);
+    // Allocating file buffer
     stat = gBS->AllocatePool(
         EfiLoaderData,
         *file_buff_size,
@@ -363,7 +367,7 @@ EFI_STATUS get_memory_map(
 }
 
 
-#define BZIMAGE_MAGIC_NUMBER 0x53647248
+#define BZIMAGE_MAGIC_NUMBER 0x53726448
 #define PROTOCOL_VERSION 0x20F
 #define SETUP_HEADER_OFFSET 0x1F1
 
@@ -401,6 +405,7 @@ EFI_STATUS load_kernel_file(
     if (EFI_ERROR(stat)) { return stat; }
 
     UINT32 *magic = (UINT32 *)(kernel+0x0202);
+    Print(L"Magic number - %d\n", *magic);
 
     if (*magic != BZIMAGE_MAGIC_NUMBER) {
         Puts(L"Aborting, the boot protocol version is 'old'");
@@ -470,7 +475,10 @@ EFI_STATUS load_kernel_file(
         &descriptor_size,
         gBS
     );
-    if (EFI_ERROR(stat)) { return stat; }
+    if (EFI_ERROR(stat)) {
+        Puts(L"get_memory_map failed");
+        return stat;
+    }
 
     /* Setting number of entries in e820_entry */
     boot_param_buff->e820_entries = memory_map_size / sizeof(memory_map);
@@ -686,6 +694,7 @@ EFI_STATUS uefi_main(
     }
 
     EFI_STATUS stat = load_kernel_file(kernel_path, sfsp, gBS);
+    PrintE(L"load_kernel_file", stat);
 
     /* Timeout to view cli logs */
     Puts(L"Timeout...");
