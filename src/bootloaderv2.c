@@ -221,7 +221,6 @@ CHAR8 *read_config_property(
         Print(c);
         Puts(L"\r\n");
         Print(L"Offset to start - %d\n", read_pos - file_buff);
-        gBS->Stall(1e5);
         /* ============================= */
 
         switch (read_st) {
@@ -454,7 +453,7 @@ EFI_STATUS load_kernel_file(
     *loadflags |= 0b00000001;
 
     /** Set kernel command line pointer to auto */
-    CHAR8 *temp = "auto";
+    static CHAR8 temp[] = "console=tty0 earlyprintk=efi,keep keep_bootcon";
 
     UINT32 *cmd_line_ptr = (UINT32*) (((UINT8*) boot_param_buff) + 0x228);
     *cmd_line_ptr = (UINT32) (UINT64) temp; /* Converts CHAR8 * address to 32 bit address  */
@@ -563,21 +562,19 @@ EFI_STATUS load_kernel_file(
             return stat;
         }
     }
-    
     /* Kernel entry point */
     UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
 
     __asm__ __volatile__ (
         "cli\n"             // deactivate interrupts
-        "mov %0, %%rsi\n"   // RSI = boot_params
-        "xor $0, %%rdi\n"   // RDI = 0
-        "xor $0, %%rbp\n"   // RBP = 0
-        "xor $0, %%rbx\n"   // RBX = 0
-        "xor $0, %%rdx\n"   // RDX = 0
+        "xor %%rdi, %%rdi\n"   // RDI = 0
+        "xor %%rbp, %%rbp\n"   // RBP = 0
+        "xor %%rbx, %%rbx\n"   // RBX = 0
+        "xor %%rdx, %%rdx\n"   // RDX = 0
         "jmp *%1\n"         // jump to kernel entry point
         :
-        : "r"(boot_param_buff), "r"(entry_point)
-        : "rsi", "rdi", "rbp", "rbx", "rdx" 
+        : "S"(boot_param_buff), "r"(entry_point)
+        : "memory"
     );
 
     return EFI_SUCCESS;
@@ -690,9 +687,6 @@ EFI_STATUS uefi_main(
     EFI_STATUS stat = load_kernel_file(kernel_path, sfsp, gBS);
     PrintE(L"load_kernel_file", stat);
 
-    /* Timeout to view cli logs */
-    Puts(L"Timeout...");
-    gBS->Stall(24e6);
 
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
 }
