@@ -1,7 +1,9 @@
 // UEFI
 #include <Uefi.h>
+#include <Base.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/GraphicsOutput.h>
 #include <Library/UefiLib.h>
 #include <Guid/FileInfo.h>
 #include <Library/BaseLib.h>
@@ -9,6 +11,7 @@
 #include <bootparam.h>
 #include <e820_entry.h>
 #include <e820_types.h>
+#include <screen_info.h>
 
 #define BOOT_CONFIG_PATH L"\\boot\\config"
 #define KERNEL_PATH_KEY "kernel"
@@ -364,6 +367,24 @@ EFI_STATUS get_memory_map(
         &descriptor_version
     );
     return EFI_ERROR(stat) ? stat : EFI_SUCCESS;
+}
+
+
+EFI_STATUS get_screen_info(
+    screen_info *screen_i,
+    EFI_BOOT_SERVICES *gBS
+) {
+    
+    EFI_GRAPHICS_OUTPUT_PROTOCOL *graphics_out;
+
+    EFI_STATUS status = gBS->LocateProtocol(
+        &gEfiLoadedImageProtocolGuid,
+        NULL,
+        &graphics_out
+    );
+    if (EFI_ERROR(status)) { return status; }
+
+    return EFI_SUCCESS;
 }
 
 
