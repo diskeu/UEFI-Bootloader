@@ -213,19 +213,6 @@ CHAR8 *read_config_property(
     Print(L"File buffer size - %llu\n", file_buff_size);
     for (CONST CHAR8 *read_pos = file_buff; read_pos - file_buff < file_buff_size; read_pos++) {
 
-               /* Temporary Debug*/
-        /* ============================= */
-        Print(L"KBUFF_I - %d\n", k_buff_i);
-        Print(L"VBUFF_I - %d\n", v_buff_i);
-        CHAR16 c[2];
-        c[0] = (CHAR16)*read_pos;
-        c[1] = L'\0';
-        Puts(L"READ=");
-        Print(c);
-        Puts(L"\r\n");
-        Print(L"Offset to start - %d\n", read_pos - file_buff);
-        /* ============================= */
-
         switch (read_st) {
 
             case MV_UNTIL_NEXT_KEY:
