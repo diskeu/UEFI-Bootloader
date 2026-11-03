@@ -19,6 +19,11 @@ and finally jumps to the kernel entry point.
 ## Boot With Qemu (MacOs specific)
 
 Head into the demo directory.
+
+Create an empty qcow image
+```shell
+qemu-img create -f qcow2 disk.img 10G
+```
 Paste the following command which launches qemu (with 4gb ram, 4 cpu cores).
 The `boot_disk.img` is the filesystem where the bootloader elf lives. The bootloader
 now starts and boot tinycore.
@@ -35,6 +40,12 @@ qemu-system-x86_64 \                                                            
 
 ## Test your own changes (MacOs specific)
 
+Head into the demo directory.
+
+Create an empty qcow image
+```shell
+qemu-img create -f qcow2 disk.img 10G
+```
 Set BOOT_HOME env variable to the current directory
 ```shell
 export BOOT_HOME={your current directory (absolute path)}
