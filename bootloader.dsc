@@ -25,3 +25,9 @@
 
 [Components]
     src/bootloader.inf
+
+# Since we don't wan't to expose the headers to other packages and this also shouldn't
+# be a package, we must give the compiler the include flags ourselves
+[BuildOptions]
+    MSFT:*_*_*_CC_FLAGS     = /I$(WORKSPACE)/src/include
+    GCC:*_*_*_CC_FLAGS      = -I$(WORKSPACE)/src/include

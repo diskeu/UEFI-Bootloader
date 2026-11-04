@@ -7,7 +7,14 @@
     ENTRY_POINT                 = uefi_main
 
 [Sources]
-    bootloaderv2.c
+    bootloader.c
+    get_config_property.c
+    get_info.c
+    get_memory_map.c
+    load_kernel_file.c
+    read_config_property.c
+    read_file.c
+    utils.c
 
 [Packages]
     MdePkg/MdePkg.dec
