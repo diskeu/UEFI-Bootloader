@@ -92,17 +92,17 @@ EFI_STATUS load_kernel_file(
      */
 
     /** Assigned bootloader Id (=Special in our case) */
-    UINT8* type_of_loader = ((UINT8*) boot_param_buff) + 0x210;
+    UINT8* type_of_loader = (UINT8*) boot_param_buff->setup_header + (0x210 - SETUP_HEADER_OFFSET);
     *type_of_loader = 0xFF;
 
     /** Indicate that the kernel is loaded above 1mb */
-    UINT8* loadflags = ((UINT8*) boot_param_buff) + 0x211;
+    UINT8* loadflags = (UINT8*) boot_param_buff->setup_header + (0x211 - SETUP_HEADER_OFFSET);
     *loadflags |= 0b00000001;
 
     /** Set kernel command line pointer to auto */
     static CHAR8 temp[] = "console=tty0 earlyprintk=efi,keep keep_bootcon";
 
-    UINT32 *cmd_line_ptr = (UINT32*) (((UINT8*) boot_param_buff) + 0x228);
+    UINT32 *cmd_line_ptr = (UINT32*) ((UINT8*) boot_param_buff->setup_header + (0x228 - SETUP_HEADER_OFFSET));
     *cmd_line_ptr = (UINT32) (UINT64) temp; /* Converts CHAR8 * address to 32 bit address  */
 
     /* Add end bits if address is 64 bit */
