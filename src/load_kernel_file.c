@@ -108,6 +108,26 @@ EFI_STATUS load_kernel_file(
     /* Add end bits if address is 64 bit */
     boot_param_buff->ext_cmd_line_ptr = (UINT64) temp > 0xFFFFFFFF ? (UINT32) ((UINT64) temp >> 32) : 0;
 
+    /** Get entry point offset */
+    /* get load flags first, configuring the enty points */
+    UINT16* xloadflags = (UINT16*) ((UINT8*) boot_param_buff->setup_header + (0x236 - SETUP_HEADER_OFFSET));
+
+    UINT32 offset = 0x200; /* Legacy entry point */
+
+    if ((*xloadflags | 0xFFFE) == 0xFFFE) { /* Bit0 not set, no legacy entry point */
+
+        UINT32* handover_offset = (UINT32*) ((UINT8*) boot_param_buff->setup_header + (0x264 - SETUP_HEADER_OFFSET));
+
+        if ((*xloadflags | 0xFFFB) == 0xFFFF) { /* Bit2 set */
+            /* entry point at handover_offset */
+            offset = *handover_offset;
+
+        } else {
+            /* entry point at handover_offset + 0x200 */
+            offset = *handover_offset + 0x200;
+        }
+    }
+
     /* Setting memory map */
     UINTN                   memory_map_size = 0;
     EFI_MEMORY_DESCRIPTOR   memory_map;
@@ -210,7 +230,7 @@ EFI_STATUS load_kernel_file(
         }
     }
     /* Kernel entry point */
-    UINT64 entry_point = (UINT64) ((UINT8*) kernel + 0x200);
+    UINT64 entry_point = (UINT64) ((UINT8*) kernel + offset);
 
     __asm__ __volatile__ (
         "cli\n"             // deactivate interrupts
