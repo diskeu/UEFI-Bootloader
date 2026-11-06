@@ -23,7 +23,7 @@ EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
     EFI_SYSTEM_TABLE *systemTable
 ) {
-    Puts(L"uefi_main"); /* Temp debug */
+    Puts(L"Starting bootloader-phase...");
 
     // Set global imageHandle
     this_handle = imageHandle;

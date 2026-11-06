@@ -13,7 +13,6 @@ EFI_STATUS read_file(
     OUT CHAR8 **file_buff,
     OUT UINT64 *file_buff_size
 ) {
-    Puts(L"read_file"); /* Temp debug */
 
     // Opening root-directory
     EFI_FILE_PROTOCOL *root;
@@ -46,12 +45,6 @@ EFI_STATUS read_file(
     stat = get_info(sub, gBS, &info);
     if (EFI_ERROR(stat)) { return stat; }
 
-         /* temp debug */
-    /* ===================== */
-    Print(L"info->FileName - %s\n", info->FileName);
-    Print(L"info->FileSize - %llu\n", info->FileSize);
-    /* ===================== */
-
     *file_buff_size = info->FileSize; 
     gBS->FreePool(info);
 
@@ -66,7 +59,6 @@ EFI_STATUS read_file(
         return stat;
     }
 
-    Puts(L"Reading into file buffer...");
     // Reading into file buffer
     stat = sub->Read(
         sub,

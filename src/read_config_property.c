@@ -18,15 +18,12 @@ CHAR8 *read_config_property(
     CONST UINT64 file_buff_size,
     CONST EFI_BOOT_SERVICES *gBS
 ) {
-    Puts(L"read_config_property"); /* Temp debug */
 
     ReadingState read_st       = KEY;
     short k_buff_i             = 0,
           v_buff_i             = 0;
     CHAR8 k_buff[CONFIG_LINE_SIZE+1];
     CHAR8 *v_buff;
-
-    if (!*file_buff) { Puts(L"E"); }
 
     EFI_STATUS alloc_stat = gBS->AllocatePool(
         EfiLoaderData,
@@ -35,13 +32,11 @@ CHAR8 *read_config_property(
     );
     if (EFI_ERROR(alloc_stat)) { return NULL; }
 
-    Print(L"File buffer size - %llu\n", file_buff_size);
     for (CONST CHAR8 *read_pos = file_buff; read_pos - file_buff < file_buff_size; read_pos++) {
 
         switch (read_st) {
 
             case MV_UNTIL_NEXT_KEY:
-                Puts(L"MV_UNTIL_NEXT_KEY");
                 if (*read_pos == '\n') {
                     read_st = KEY;
                 } else {
@@ -50,7 +45,6 @@ CHAR8 *read_config_property(
                 break;
 
             case KEY:
-                Puts(L"KEY");
                 switch (*read_pos) {
 
                     case '#':
@@ -76,13 +70,13 @@ CHAR8 *read_config_property(
                 break;
 
             case VALUE:
-                Puts(L"VALUE");
                 if (
                     *read_pos == '#' ||
                     *read_pos == '\r' ||
                     *read_pos == '\n'
                 ) {
                     v_buff[v_buff_i] = '\0';
+                    Print(L"Found kernel location: "); Puts(convert_to_char16(v_buff, gBS));
                     return v_buff;
                 }
                 if (*read_pos != ' ') { v_buff[v_buff_i++] = *read_pos; }

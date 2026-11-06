@@ -13,7 +13,6 @@ CHAR8 * get_config_property(
     CONST EFI_BOOT_SERVICES *gBS,
     EFI_STATUS *efi_status
 ) {
-    Puts(L"get_config_property"); /* Temp debug */
 
     CHAR8 *file_buff;
     UINT64 file_buff_size;

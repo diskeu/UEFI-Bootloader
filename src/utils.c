@@ -16,7 +16,6 @@ void Puts(CONST CHAR16 *msg) {
 
 
 CHAR16 *convert_to_char16(CONST CHAR8 *data, CONST EFI_BOOT_SERVICES *gBS) {
-    Puts(L"convert_to_char16");
 
     UINTN len = AsciiStrLen(data);
     CHAR16 *result;

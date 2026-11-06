@@ -9,7 +9,6 @@ EFI_STATUS get_info(
     CONST EFI_BOOT_SERVICES *gBS,
     EFI_FILE_INFO **info
 ) {
-    Puts(L"get_info"); /* Temp debug */
     UINTN buff_size     = 0;
     EFI_STATUS stat;
 

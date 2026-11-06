@@ -9,7 +9,9 @@ EFI_STATUS get_memory_map(
     UINTN                       *descriptor_size,
     EFI_BOOT_SERVICES           *gBS
 ) {
-    Puts(L"get_memory_map"); /* Temp debug */
+    /* Since a call to print can change the memory map, there
+    will be no print debug statements if no known error occures */
+    Puts(L"Getting memory map. Print statements are now disabled.");
 
     UINT32                  descriptor_version;
     EFI_STATUS              stat;

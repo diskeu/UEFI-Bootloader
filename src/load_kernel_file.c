@@ -23,7 +23,6 @@ EFI_STATUS load_kernel_file(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     EFI_BOOT_SERVICES *gBS
 ) {
-    Puts(L"load_kernel_file"); /* Temp debug */
 
     CHAR8 *kernel;
     UINT64 *kernel_buff_size = {0};
@@ -37,9 +36,6 @@ EFI_STATUS load_kernel_file(
         return EFI_OUT_OF_RESOURCES;
     }
 
-    Print(L"Kernel path len =%d", StrLen(kernel_path16));
-    Print(kernel_path16); Puts(L"");
-
     // Reading file
     stat = read_file(
         kernel_path16,
@@ -52,7 +48,6 @@ EFI_STATUS load_kernel_file(
     if (EFI_ERROR(stat)) { return stat; }
 
     UINT32 *magic = (UINT32 *)(kernel+0x0202);
-    Print(L"Magic number - %d\n", *magic);
 
     if (*magic != BZIMAGE_MAGIC_NUMBER) {
         Puts(L"Aborting, the boot protocol version is 'old'");
