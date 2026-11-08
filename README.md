@@ -26,16 +26,17 @@ qemu-img create -f qcow2 disk.img 10G
 ```
 Paste the following command which launches qemu (with 4gb ram, 4 cpu cores).
 The `boot_disk.img` is the filesystem where the bootloader elf lives. The bootloader
-now starts and boot tinycore.
+now starts and boots tinycore.
 ```shell
-qemu-system-x86_64 \                                                                                                                        ─╯
+qemu-system-x86_64 \
   -machine q35 \
   -m 4G \
   -smp 4 \
   -drive file=disk.img,format=qcow2 \
   -boot menu=on \
--drive file=boot_disk.img,format=raw \
-  -drive if=pflash,format=raw,readonly=on,file=/opt/homebrew/share/qemu/edk2-x86_64-code.fd
+  -drive file=boot_disk.img,format=raw \
+  -drive if=pflash,format=raw,readonly=on,file=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  -no-reboot -no-shutdown -serial stdio -d int,cpu_reset,guest_errors
 ```
 
 ## Test your own changes (MacOs specific)
@@ -59,7 +60,7 @@ mv ./your_bootloader.elf $BOOT_HOME/share/
 Then execute the following command which launches qemu (4gb ram, 4 cpu cores).
 `boot_disk.img` is the filesystem where the bootloader elf later gets pasted.
 ```shell
-qemu-system-x86_64 \                                                                                                                        ─╯
+qemu-system-x86_64 \
   -machine q35 \
   -m 4G \
   -smp 4 \
@@ -79,6 +80,3 @@ umount /mnt/sdb1
 This moves the bootloader elf from the share directory into the `boot_disk.img`.
 
 Now you can test your changes ths same way as mentioned above - (Section "Boot With Qemu (MacOs specific)").
-
-### Note
-The Bootloader currently freezes after jumping to the kernel entry point. I couldn't identify the cause of this issue yet.
