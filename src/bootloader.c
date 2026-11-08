@@ -19,6 +19,7 @@
 
 EFI_HANDLE this_handle;
 
+__attribute__((noinline))
 EFI_STATUS uefi_main(
     EFI_HANDLE imageHandle,
     EFI_SYSTEM_TABLE *systemTable
@@ -61,6 +62,16 @@ EFI_STATUS uefi_main(
 
     CHAR8 *kernel_path = NULL;
     EFI_STATUS efi_status;
+
+    EFI_LOADED_IMAGE_PROTOCOL *LoadedImage;
+
+    gBS->HandleProtocol(
+        imageHandle,
+        &gEfiLoadedImageProtocolGuid,
+        (VOID **)&LoadedImage
+    );
+    Print(L"ImageBase: %p\n", LoadedImage->ImageBase);
+    gBS->Stall(8e6);
 
     if (
         !sfsp ||

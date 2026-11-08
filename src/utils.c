@@ -3,6 +3,7 @@
 #include <Base.h>
 #include <Library/UefiLib.h>
 #include <Library/BaseLib.h>
+#include <stddef.h>
 
 void PrintE(CONST CHAR16 *msg, CONST EFI_STATUS stat) {
     Print(msg);
@@ -39,4 +40,14 @@ CHAR16 *convert_to_char16(CONST CHAR8 *data, CONST EFI_BOOT_SERVICES *gBS) {
     *ptr = L'\0';
 
     return result;
+}
+
+void *memset(void *b, int c, size_t len)
+{
+    UINT8 *ptr = b;
+
+    while (len--) {
+        *ptr++ = (UINT8)c;
+    }
+    return b;
 }

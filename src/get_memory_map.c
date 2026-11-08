@@ -4,7 +4,7 @@
 
 EFI_STATUS get_memory_map(
     UINTN                       *memory_map_size,
-    EFI_MEMORY_DESCRIPTOR       *memory_map,
+    EFI_MEMORY_DESCRIPTOR       **memory_map,
     UINTN                       *map_key,
     UINTN                       *descriptor_size,
     EFI_BOOT_SERVICES           *gBS
@@ -15,6 +15,7 @@ EFI_STATUS get_memory_map(
 
     UINT32                  descriptor_version;
     EFI_STATUS              stat;
+    *memory_map_size = 0;
 
     /**
      * One time finding memory_map_size and
@@ -22,27 +23,27 @@ EFI_STATUS get_memory_map(
      */
     stat = gBS->GetMemoryMap(
         memory_map_size,
-        memory_map,
+        NULL,
         map_key,
         descriptor_size,
         &descriptor_version
     );
     if (EFI_ERROR(stat) && stat != EFI_BUFFER_TOO_SMALL) { return stat; }
 
+    /* Add extra space for the allocation below */
+    *memory_map_size += *descriptor_size * 2;
+
     stat = gBS->AllocatePool(
         EfiLoaderData,
         *memory_map_size,
-        (VOID**) &memory_map
+        (VOID**) memory_map
     );
     if (EFI_ERROR(stat)) { return stat; }
-
-    /* Add extra space for the allocation above */
-    *memory_map_size += *descriptor_size * 2;
 
     /* Call memory map with correct buffer size */
     stat = gBS->GetMemoryMap(
         memory_map_size,
-        memory_map,
+        *memory_map,
         map_key,
         descriptor_size,
         &descriptor_version

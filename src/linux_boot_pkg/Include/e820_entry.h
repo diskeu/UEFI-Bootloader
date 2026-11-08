@@ -3,7 +3,7 @@
 
 #include <Base.h>
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     UINT64 addr; /* start of memory segment */
     UINT64 size; /* size of memory segment */
     UINT32 type; /* type of memory segment */

@@ -18,6 +18,7 @@
 #define PROTOCOL_VERSION 0x20F
 #define SETUP_HEADER_OFFSET 0x1F1
 
+__attribute__((optnone))
 EFI_STATUS load_kernel_file(
     CHAR8 *kernel_path,
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
@@ -95,7 +96,7 @@ EFI_STATUS load_kernel_file(
     *loadflags |= 0b00000001;
 
     /** Set kernel command line pointer to auto */
-    static CHAR8 temp[] = "console=tty0 earlyprintk=efi,keep keep_bootcon";
+    static CHAR8 temp[] = "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 debug";
 
     UINT32 *cmd_line_ptr = (UINT32*) ((UINT8*) boot_param_buff->setup_header + (0x228 - SETUP_HEADER_OFFSET));
     *cmd_line_ptr = (UINT32) (UINT64) temp; /* Converts CHAR8 * address to 32 bit address  */
@@ -123,9 +124,62 @@ EFI_STATUS load_kernel_file(
         }
     }
 
+    /* Contigious memory the kernel needs */
+    UINT32 init_size = *(UINT32*) (kernel + 0x260);
+
+    /* Pages to allocate */
+    UINT64 pages = (init_size + 0xFFF) / 0x1000;
+
+    /* Preffered address where the kernel will be loaded */
+    EFI_PHYSICAL_ADDRESS pref_address = *(UINT64*) (kernel + 0x258);
+
+    /* Begin of protected mode code */
+    EFI_PHYSICAL_ADDRESS load_address = pref_address;
+
+    stat = gBS->AllocatePages(
+        AllocateAddress,
+        EfiLoaderData,
+        pages,
+        &pref_address
+    );
+
+    if (EFI_ERROR(stat)) {
+        Print(L"Prefered address - %x not avialable - EFI_STATUS: %d\n", pref_address, stat);
+
+        load_address = 0xFFFFFFFF; /* Under 4GiB */
+        
+        stat = gBS->AllocatePages(
+            AllocateMaxAddress,
+            EfiLoaderData,
+            pages,
+            &load_address
+        );
+
+        if (EFI_ERROR(stat)) {
+            PrintE(L"Allocating pages under 4Gib failed\n", stat);
+            return stat;
+        }
+
+        UINT32 kernel_alignement = *(UINT32*) (kernel + 0x230);
+        /* round load_address up if its not a multiple of kernel_alignement */
+        load_address = (load_address + kernel_alignement - 1) & ~((UINT64) kernel_alignement - 1);
+    }
+    /* Copy protected mode code to allocated address */
+    UINT8 setup_sects = *((UINT8*) kernel + 0x1F1);
+    if (setup_sects == 0) setup_sects = 4;
+
+    UINT64 pm_offset = (setup_sects + 1) * 512;
+
+    gBS->CopyMem(
+        (VOID*) load_address,
+        (VOID*) (kernel + pm_offset),
+        *kernel_buff_size - pm_offset
+    );
+
+
     /* Setting memory map */
     UINTN                   memory_map_size = 0;
-    EFI_MEMORY_DESCRIPTOR   memory_map;
+    EFI_MEMORY_DESCRIPTOR   *memory_map;
     UINTN                   map_key;
     UINTN                   descriptor_size;
 
@@ -139,15 +193,15 @@ EFI_STATUS load_kernel_file(
     );
     if (EFI_ERROR(stat)) { return stat; }
 
-    /* Setting number of entries in e820_entry */
-    boot_param_buff->e820_entries = memory_map_size / sizeof(memory_map);
-
     /* Iterating through every descriptor */
+    EFI_MEMORY_DESCRIPTOR *descriptor;
+    UINTN n = 0;
     for (
-        EFI_MEMORY_DESCRIPTOR *descriptor = &memory_map;
-        descriptor - &memory_map < boot_param_buff->e820_entries;
-        descriptor++
+        ;
+        n < 128 && n < memory_map_size / descriptor_size;
+        n++
     ) {
+        descriptor = (EFI_MEMORY_DESCRIPTOR*) ((UINT8*) memory_map + (n * descriptor_size));
 
         UINT32 e820_type;
 
@@ -189,14 +243,14 @@ EFI_STATUS load_kernel_file(
                 break;
         }
         
-        boot_param_buff->e820_table[
-            BOOT_E820_ENTRY_SIZE * (descriptor - &memory_map)
-        ] = (e820entry) {
+        boot_param_buff->e820_table[n] = (e820entry) {
             .addr = descriptor->PhysicalStart,
             .size = descriptor->NumberOfPages * 4096,
             .type = e820_type
         };
     }
+    /* Setting number of entries in e820_entry */
+    boot_param_buff->e820_entries = n;
 
     // Exit Boot services
     stat = gBS->ExitBootServices(this_handle, map_key);
@@ -225,7 +279,8 @@ EFI_STATUS load_kernel_file(
         }
     }
     /* Kernel entry point */
-    UINT64 entry_point = (UINT64) ((UINT8*) kernel + offset);
+    UINT64 entry_point = (UINT64) ((UINT8*) load_address + offset);
+    __asm__ volatile ("outb %0, %1" :: "a"((UINT8)'X'), "Nd"((UINT16)0x3F8));
 
     __asm__ __volatile__ (
         "cli\n"             // deactivate interrupts
