@@ -23,7 +23,8 @@ CHAR8 * get_config_property(
         sfsp,
         gBS,
         &file_buff,
-        &file_buff_size
+        &file_buff_size,
+        0
     );
     if (EFI_ERROR(*efi_status)) { return NULL; }
 
@@ -33,7 +34,7 @@ CHAR8 * get_config_property(
         file_buff_size,
         gBS
     );
-    gBS->FreePool(file_buff);
+    gBS->FreePages((EFI_PHYSICAL_ADDRESS) file_buff, 1);
 
     if (!kernel_path) {
         Print(

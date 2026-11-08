@@ -71,7 +71,6 @@ EFI_STATUS uefi_main(
         (VOID **)&LoadedImage
     );
     Print(L"ImageBase: %p\n", LoadedImage->ImageBase);
-    gBS->Stall(8e6);
 
     if (
         !sfsp ||

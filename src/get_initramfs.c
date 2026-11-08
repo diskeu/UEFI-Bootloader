@@ -18,7 +18,8 @@ EFI_STATUS get_initramfs(
         sfsp,
         gBS,
         initramfs,
-        initramfs_size
+        initramfs_size,
+        1
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Couldn't get initial ram filesystem", stat);

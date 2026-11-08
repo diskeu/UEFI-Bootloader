@@ -27,7 +27,7 @@ EFI_STATUS load_kernel_file(
 ) {
 
     CHAR8 *kernel;
-    UINT64 *kernel_buff_size = {0};
+    UINT64 kernel_buff_size = 0;
     EFI_STATUS stat;
 
     CHAR16 *kernel_path16 = convert_to_char16(kernel_path, gBS);
@@ -44,7 +44,8 @@ EFI_STATUS load_kernel_file(
         sfsp,
         gBS,
         &kernel,
-        kernel_buff_size
+        &kernel_buff_size,
+        0
     );
     // TODO: Free kernel_path here
     if (EFI_ERROR(stat)) { return stat; }
@@ -174,7 +175,7 @@ EFI_STATUS load_kernel_file(
     gBS->CopyMem(
         (VOID*) load_address,
         (VOID*) (kernel + pm_offset),
-        *kernel_buff_size - pm_offset
+        kernel_buff_size - pm_offset
     );
 
     /* Reading Initial ram filesystem into ram
@@ -299,7 +300,6 @@ EFI_STATUS load_kernel_file(
     }
     /* Kernel entry point */
     UINT64 entry_point = (UINT64) ((UINT8*) load_address + offset);
-    __asm__ volatile ("outb %0, %1" :: "a"((UINT8)'X'), "Nd"((UINT16)0x3F8));
 
     __asm__ __volatile__ (
         "cli\n"             // deactivate interrupts

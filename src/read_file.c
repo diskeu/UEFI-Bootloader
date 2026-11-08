@@ -2,7 +2,6 @@
 #include <Uefi.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Guid/FileInfo.h>
-#include <Library/UefiLib.h>
 #include "utils.h"
 #include "get_info.h"
 
@@ -11,7 +10,8 @@ EFI_STATUS read_file(
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sfsp,
     CONST EFI_BOOT_SERVICES *gBS,
     OUT CHAR8 **file_buff,
-    OUT UINT64 *file_buff_size
+    OUT UINT64 *file_buff_size,
+    UINT8 load_under4gib
 ) {
 
     // Opening root-directory
@@ -49,15 +49,31 @@ EFI_STATUS read_file(
     gBS->FreePool(info);
 
     // Allocating file buffer
-    stat = gBS->AllocatePool(
-        EfiLoaderData,
-        *file_buff_size,
-        (VOID**) file_buff
-    );
+    EFI_PHYSICAL_ADDRESS addr;
+    UINT64 pages = (*file_buff_size + 0xFFF) / 0x1000;
+
+    if (!load_under4gib) {
+        addr = 0;
+        stat = gBS->AllocatePages(
+            AllocateAnyPages,
+            EfiLoaderData,
+            pages,
+            &addr
+        );
+    } else {
+        addr = 0xFFFFFFFF;
+        stat = gBS->AllocatePages(
+            AllocateMaxAddress,
+            EfiLoaderData,
+            pages,
+            &addr
+        );
+    }
     if (EFI_ERROR(stat)) {
         PrintE(L"Error allocating file buffer", stat);
         return stat;
     }
+    *file_buff = (CHAR8*) (UINT64) addr;
 
     // Reading into file buffer
     stat = sub->Read(
@@ -67,7 +83,7 @@ EFI_STATUS read_file(
     );
     if (EFI_ERROR(stat)) {
         PrintE(L"Error while reading into file buffer", stat);
-        gBS->FreePool(*file_buff);
+        gBS->FreePages(addr, pages);
         return stat;
     } 
 
