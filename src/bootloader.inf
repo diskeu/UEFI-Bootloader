@@ -11,6 +11,7 @@
     get_config_property.c
     get_info.c
     get_memory_map.c
+    get_initramfs.c
     load_kernel_file.c
     read_config_property.c
     read_file.c

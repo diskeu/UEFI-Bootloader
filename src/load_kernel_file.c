@@ -13,6 +13,7 @@
 #include "utils.h"
 #include "read_file.h"
 #include "get_memory_map.h"
+#include "get_initramfs.h"
 
 #define BZIMAGE_MAGIC_NUMBER 0x53726448
 #define PROTOCOL_VERSION 0x20F
@@ -176,6 +177,24 @@ EFI_STATUS load_kernel_file(
         *kernel_buff_size - pm_offset
     );
 
+    /* Reading Initial ram filesystem into ram
+    and setting corresponding fields in boot_params */
+    CHAR8 *initramfs;
+    UINTN initramfs_size;
+
+    stat = get_initramfs(
+        &initramfs,
+        &initramfs_size,
+        sfsp,
+        gBS
+    );
+    if (EFI_ERROR(stat)) return stat;
+
+    /* Set the lower 32 bits of the initramfs address */
+    *(UINT32*) ((UINT8*) boot_param_buff + 0x218) = (UINT32) (UINT64) initramfs;
+
+    /* Set the lower 32 bits of the initramfs size */
+    *(UINT32*) ((UINT8*) boot_param_buff + 0x21C) = (UINT32) initramfs_size;
 
     /* Setting memory map */
     UINTN                   memory_map_size = 0;
