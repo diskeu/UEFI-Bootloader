@@ -97,8 +97,8 @@ EFI_STATUS load_kernel_file(
     UINT8* loadflags = (UINT8*) boot_param_buff->setup_header + (0x211 - SETUP_HEADER_OFFSET);
     *loadflags |= 0b00000001;
 
-    /** Set kernel command line pointer to auto */
-    static CHAR8 temp[] = "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 debug";
+    /** Set kernel command line and skip /init and go directely to /bin/sh */
+    static CHAR8 temp[] = "console=ttyS0,115200 rdinit=/bin/sh";
 
     UINT32 *cmd_line_ptr = (UINT32*) ((UINT8*) boot_param_buff->setup_header + (0x228 - SETUP_HEADER_OFFSET));
     *cmd_line_ptr = (UINT32) (UINT64) temp; /* Converts CHAR8 * address to 32 bit address  */
